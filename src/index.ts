@@ -37,9 +37,9 @@ function friendlyError(error: unknown) {
 
 const program = new Command();
 program
-  .name('zilo-manager')
-  .description('CLI-first multi-agent manager for ZiloShift')
-  .version('0.1.0');
+  .name('zilmate')
+  .description('ZilMate CLI agent for ZiloShift workflows')
+  .version('1.0.0');
 
 program
   .command('models')
@@ -177,6 +177,7 @@ program.parseAsync(process.argv).catch((error) => {
   printError(friendlyError(error));
   process.exitCode = 1;
 });
+
 
 
 

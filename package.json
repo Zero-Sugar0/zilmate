@@ -1,39 +1,71 @@
 {
-    "name": "zilo-manager",
-    "version": "1.0.0",
-    "description": "CLI-first multi-agent manager for ZiloShift workflows.",
-    "type": "module",
-    "main": "dist/index.js",
-    "types": "dist/index.d.ts",
-    "scripts": {
-        "build": "tsc",
-        "cli": "tsx src/index.ts",
-        "start": "node dist/index.js",
-        "models": "tsx src/index.ts models",
-        "test": "npm run build"
-    },
-    "keywords": [
-        "agents",
-        "ai-sdk",
-        "vercel-ai-gateway",
-        "ziloshift"
-    ],
-    "author": "",
-    "license": "ISC",
-    "dependencies": {
-        "@tavily/core": "^0.7.5",
-        "@upstash/redis": "^1.38.0",
-        "ai": "^6.0.198",
-        "chalk": "^5.6.2",
-        "commander": "^15.0.0",
-        "dotenv": "^17.4.2",
-        "marked": "^15.0.12",
-        "marked-terminal": "^7.3.0",
-        "tsx": "^4.22.4",
-        "zod": "^4.4.3"
-    },
-    "devDependencies": {
-        "@types/node": "^25.9.2",
-        "typescript": "^6.0.3"
-    }
+  "name": "@zilo/zilmate",
+  "version": "1.0.0",
+  "description": "ZilMate CLI multi-agent assistant for ZiloShift workflows.",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "cli": "tsx src/index.ts",
+    "zilmate": "tsx src/index.ts",
+    "talk": "tsx src/index.ts talk",
+    "start": "node dist/index.js",
+    "models": "tsx src/index.ts models",
+    "test": "npm run build",
+    "prepare": "npm run build",
+    "pack:dry": "npm pack --dry-run",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "ziloshift",
+    "zilmate",
+    "agents",
+    "ai-sdk",
+    "vercel-ai-gateway",
+    "cli"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@tavily/core": "^0.7.5",
+    "@upstash/redis": "^1.38.0",
+    "ai": "^6.0.198",
+    "chalk": "^5.6.2",
+    "commander": "^15.0.0",
+    "dotenv": "^17.4.2",
+    "marked": "^15.0.12",
+    "marked-terminal": "^7.3.0",
+    "tsx": "^4.22.4",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.2",
+    "typescript": "^6.0.3"
+  },
+  "bin": {
+    "zilmate": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "src/doc",
+    "agent-docs.md",
+    "README.md",
+    ".env.example",
+    "install.ps1"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zester4/zilo-manager.git"
+  },
+  "bugs": {
+    "url": "https://github.com/zester4/zilo-manager/issues"
+  },
+  "homepage": "https://github.com/zester4/zilo-manager#readme",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
 }
