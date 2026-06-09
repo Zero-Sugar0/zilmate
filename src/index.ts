@@ -10,6 +10,7 @@ import { createPostAgent } from './agents/post.agent.js';
 import { createDocsResearchAgent } from './agents/docs-research.agent.js';
 import { generateImageAsset, isImageSize } from './tools/image-generate.tool.js';
 import { startInteractiveChat } from './cli/interactive.js';
+import { runSetup } from './cli/setup.js';
 import { memoryBackendName } from './memory/redis.js';
 import { printError, printJson, printMarkdown, printProgress } from './cli/format.js';
 
@@ -40,6 +41,33 @@ program
   .name('zilmate')
   .description('ZilMate CLI agent for ZiloShift workflows')
   .version('1.0.0');
+
+program
+  .command('setup')
+  .option('-p, --path <file>', 'environment file to create or update', '.env')
+  .option('-f, --force', 'skip the first overwrite confirmation when the env file exists')
+  .option('-y, --yes', 'noninteractive mode; write defaults plus provided keys')
+  .option('--ai-gateway-key <key>', 'AI Gateway API key')
+  .option('--tavily-key <key>', 'optional Tavily API key for web research')
+  .option('--redis-url <url>', 'optional Upstash Redis REST URL')
+  .option('--redis-token <token>', 'optional Upstash Redis REST token')
+  .description('Create or update a local .env file for ZilMate')
+  .action(async (options: { path: string; force?: boolean; yes?: boolean; aiGatewayKey?: string; tavilyKey?: string; redisUrl?: string; redisToken?: string }) => {
+    try {
+      await runSetup({
+        path: options.path,
+        force: Boolean(options.force),
+        yes: Boolean(options.yes),
+        ...(options.aiGatewayKey !== undefined ? { aiGatewayKey: options.aiGatewayKey } : {}),
+        ...(options.tavilyKey !== undefined ? { tavilyKey: options.tavilyKey } : {}),
+        ...(options.redisUrl !== undefined ? { redisUrl: options.redisUrl } : {}),
+        ...(options.redisToken !== undefined ? { redisToken: options.redisToken } : {}),
+      });
+    } catch (error) {
+      printError(friendlyError(error));
+      process.exitCode = 1;
+    }
+  });
 
 program
   .command('models')

@@ -2,7 +2,8 @@ param(
   [ValidateSet("github", "npm")]
   [string]$Source = "github",
   [string]$GitHubPackage = "github:zester4/zilo-manager",
-  [string]$NpmPackage = "@zilo/zilmate"
+  [string]$NpmPackage = "@zilo/zilmate",
+  [switch]$NoSetup
 )
 
 $ErrorActionPreference = "Stop"
@@ -22,3 +23,10 @@ npm install -g $target
 
 Write-Host "`nZilMate installed. Checking command..." -ForegroundColor Green
 zilmate --help
+
+if (-not $NoSetup) {
+  Write-Host "`nStarting ZilMate setup..." -ForegroundColor Cyan
+  zilmate setup
+} else {
+  Write-Host "`nRun 'zilmate setup' later to create your .env file." -ForegroundColor Yellow
+}

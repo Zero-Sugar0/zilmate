@@ -12,6 +12,7 @@ After the package is published to npm:
 
 ```powershell
 npm install -g @zilo/zilmate
+zilmate setup
 zilmate --help
 ```
 
@@ -21,6 +22,7 @@ Before npm publishing, install directly from the GitHub repo:
 
 ```powershell
 npm install -g github:zester4/zilo-manager
+zilmate setup
 zilmate --help
 ```
 
@@ -32,13 +34,19 @@ From PowerShell, the helper can install from GitHub by default:
 iwr https://raw.githubusercontent.com/zester4/zilo-manager/main/install.ps1 | iex
 ```
 
+The installer runs `zilmate setup` after installing. To install without setup:
+
+```powershell
+iex "& { $((iwr -UseBasicParsing https://raw.githubusercontent.com/zester4/zilo-manager/main/install.ps1).Content) } -NoSetup"
+```
+
 To install from npm after publishing:
 
 ```powershell
 iex "& { $((iwr -UseBasicParsing https://raw.githubusercontent.com/zester4/zilo-manager/main/install.ps1).Content) } -Source npm"
 ```
 
-The helper only checks for Node/npm, runs `npm install -g`, and prints `zilmate --help`.
+The helper checks for Node/npm, runs `npm install -g`, prints `zilmate --help`, and starts setup unless `-NoSetup` is passed.
 
 ## Setup
 
@@ -49,6 +57,16 @@ npm install
 ```
 
 2. Create `.env` from `.env.example`:
+
+The easiest path is:
+
+```powershell
+zilmate setup
+```
+
+It asks for `AI_GATEWAY_API_KEY`, optionally asks for `TAVILY_API_KEY` and Upstash Redis keys, then writes a local `.env`.
+
+You can also create `.env` manually:
 
 ```env
 AI_GATEWAY_API_KEY=your_vercel_ai_gateway_key
@@ -73,6 +91,7 @@ Use these while working inside the project folder:
 ```powershell
 npm run build
 npm run zilmate -- --help
+npm run zilmate -- setup
 npm run zilmate -- models
 npm run zilmate -- talk
 npm run zilmate -- talk --session launch
@@ -103,6 +122,7 @@ Then use ZilMate directly:
 
 ```powershell
 zilmate --help
+zilmate setup
 zilmate talk
 zilmate ping
 zilmate models
@@ -121,6 +141,7 @@ zilmate image --model openai --size 1024x1024 "ZiloShift launch poster"
 - `image`: Gateway image generation that saves files under `outputs/images/`. Use `--model openai|chatgpt|gemini` and optionally `--size 1024x1024` for OpenAI.
 - `models`: selected models, Gateway availability warnings, and active memory backend.
 - `ping`: tiny Gateway text call to verify auth.
+- `setup`: interactive `.env` setup for API keys, optional Tavily search, optional Redis memory, and model defaults.
 
 ## Agent Architecture
 
@@ -150,6 +171,7 @@ Local ZiloShift docs live under `src/doc/`. ZilMate reads them on demand through
 - Web crawling and deep research are intentionally heavier tools and should be used only when local docs/search are not enough.
 - Scratchpads keep intermediate notes outside the main prompt context.
 - Redis is optional; local file memory is the fallback.
+- `zilmate setup` creates or updates the local `.env` used by the CLI.
 
 ## Safety Notes
 

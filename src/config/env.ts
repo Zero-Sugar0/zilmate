@@ -51,13 +51,13 @@ export function hasGatewayAuth() {
 
 export function requireGatewayAuth() {
   if (!hasGatewayAuth()) {
-    throw new Error('Missing AI Gateway auth. Add AI_GATEWAY_API_KEY to .env.local, or run with VERCEL_OIDC_TOKEN.');
+    throw new Error('Missing AI Gateway auth. Run `zilmate setup`, add AI_GATEWAY_API_KEY to .env, or run with VERCEL_OIDC_TOKEN.');
   }
 }
 
 export function requireTavily() {
   if (!env.tavilyApiKey) {
-    throw new Error('Missing TAVILY_API_KEY. Add it to .env.local to enable web research.');
+    throw new Error('Missing TAVILY_API_KEY. Run `zilmate setup` or add it to .env to enable web research.');
   }
   return env.tavilyApiKey;
 }
