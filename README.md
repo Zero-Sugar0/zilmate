@@ -114,6 +114,9 @@ npm run zilmate -- doctor
 npm run zilmate -- config
 npm run zilmate -- models
 npm run zilmate -- apps status
+npm run zilmate -- triggers listen
+npm run zilmate -- triggers types github
+npm run zilmate -- triggers list
 npm run zilmate -- remember "Prefers concise support replies"
 npm run zilmate -- recall support
 npm run zilmate -- memory list
@@ -155,6 +158,11 @@ zilmate talk
 zilmate ping
 zilmate models
 zilmate apps status
+zilmate triggers listen
+zilmate triggers types github
+zilmate triggers create GITHUB_BRANCH_CREATED_TRIGGER --dry-run --owner zester4 --repo zilo-manager
+zilmate triggers create GITHUB_COMMIT_EVENT --owner zester4 --repo zilo-manager
+zilmate triggers list
 zilmate remember "Use a warm but concise support tone"
 zilmate recall support
 zilmate memory list
@@ -174,6 +182,11 @@ zilmate image --model openai --size 1024x1024 "ZiloShift launch poster"
 - `forget`: delete one memory by id, or use `--all`.
 - `memory list`: list saved durable memories.
 - `apps status`: show whether Composio is configured, the local `ZILMATE_USER_ID`, the current Composio session id, and connected/available toolkit status when the SDK can fetch it.
+- `triggers listen`: stream Composio trigger events into the terminal until Ctrl+C.
+- `triggers types [toolkit]`: list available trigger types, optionally for one toolkit.
+- `triggers info <trigger>`: show trigger config and payload schemas.
+- `triggers create <trigger> --flag value`: create a trigger instance; unknown flags become trigger config.
+- `triggers list`: list trigger instances.
 - `help`: fast troubleshooting and app guidance.
 - `chat`: one-shot natural dialogue about ZiloShift workflows.
 - `post`: WhatsApp/status/social copy generation.
@@ -209,6 +222,26 @@ zilmate apps status
 In `zilmate talk`, ask for the external task naturally. If an account is not connected yet, ZilMate uses Composio connection tools and prints the connect link returned by Composio. ZilMate does not implement custom OAuth flows.
 
 Read/search/schema/auth-link tools can run without confirmation. Write-like external app actions such as create, update, delete, send, post, publish, invite, transfer, charge, refund, cancel, approve, revoke, workbench, or bash require `Proceed? (y/N)` in the terminal. In noninteractive mode, write-like actions are blocked.
+
+## Trigger Events
+
+For live terminal events, use Composio trigger listening:
+
+```powershell
+zilmate triggers types github
+zilmate triggers create GITHUB_COMMIT_EVENT --owner zester4 --repo zilo-manager
+zilmate triggers listen
+```
+
+`listen` streams matching trigger events until Ctrl+C. Use filters when needed:
+
+```powershell
+zilmate triggers listen --toolkit gmail
+zilmate triggers listen --trigger ti_abc123
+zilmate triggers listen --trigger-slug GMAIL_NEW_EMAIL_EVENT --once
+```
+
+This is terminal-local. For persistent public callbacks, use webhook/tunnel support later.
 
 ## Model Notes
 

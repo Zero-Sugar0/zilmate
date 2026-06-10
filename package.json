@@ -15,6 +15,7 @@
     "doctor": "tsx src/index.ts doctor",
     "config": "tsx src/index.ts config",
     "memory": "tsx src/index.ts memory",
+    "triggers": "tsx src/index.ts triggers",
     "test": "npm run build",
     "prepare": "npm run build",
     "pack:dry": "npm pack --dry-run",

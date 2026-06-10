@@ -17,6 +17,7 @@ import { createTerminalConfirmation } from './cli/confirm.js';
 import { getComposioStatus } from './tools/composio.tool.js';
 import { getResolvedConfigSummary, runDoctor, type DoctorCheck } from './cli/doctor.js';
 import { clearMemories, forget, listMemories, recall, remember } from './memory/long-term.js';
+import { createTrigger, listenToTriggers, listTriggers, listTriggerTypes, showTriggerType } from './cli/triggers.js';
 
 type TextAgentFactory = () => { generate: (input: { prompt: string }) => Promise<{ text: string }> };
 
@@ -221,6 +222,93 @@ apps
       if (!status.configured) {
         console.log('Composio is not configured. Run `zilmate setup` and add `COMPOSIO_API_KEY` to enable GitHub/Gmail/Slack/Stripe/Supabase-style external app tools.');
       }
+    } catch (error) {
+      printError(friendlyError(error));
+      process.exitCode = 1;
+    }
+  });
+
+const triggers = program
+  .command('triggers')
+  .description('Listen to and manage Composio trigger events');
+
+triggers
+  .command('types')
+  .argument('[toolkit]', 'optional toolkit slug, e.g. github or gmail')
+  .option('-l, --limit <number>', 'maximum trigger types to show', '25')
+  .option('--json', 'print JSON output')
+  .description('List available Composio trigger types')
+  .action(async (toolkit: string | undefined, options: { limit?: string; json?: boolean }) => {
+    try {
+      await listTriggerTypes(toolkit, options);
+    } catch (error) {
+      printError(friendlyError(error));
+      process.exitCode = 1;
+    }
+  });
+
+triggers
+  .command('info')
+  .argument('<trigger>', 'trigger type slug, e.g. GITHUB_COMMIT_EVENT')
+  .option('--json', 'print JSON output')
+  .description('Show one Composio trigger type schema')
+  .action(async (trigger: string, options: { json?: boolean }) => {
+    try {
+      await showTriggerType(trigger, options);
+    } catch (error) {
+      printError(friendlyError(error));
+      process.exitCode = 1;
+    }
+  });
+
+triggers
+  .command('list')
+  .option('-l, --limit <number>', 'maximum trigger instances to show', '25')
+  .option('--show-disabled', 'include disabled trigger instances')
+  .option('--json', 'print JSON output')
+  .description('List active Composio trigger instances')
+  .action(async (options: { limit?: string; showDisabled?: boolean; json?: boolean }) => {
+    try {
+      await listTriggers(options);
+    } catch (error) {
+      printError(friendlyError(error));
+      process.exitCode = 1;
+    }
+  });
+
+triggers
+  .command('create')
+  .argument('<trigger>', 'trigger type slug, e.g. GITHUB_COMMIT_EVENT')
+  .option('--connected-account <id>', 'specific connected account id to use')
+  .option('--config <json>', 'trigger config as a JSON object')
+  .option('--dry-run', 'print the create payload without creating a trigger')
+  .allowUnknownOption(true)
+  .allowExcessArguments(true)
+  .description('Create a Composio trigger instance; unknown --flags become trigger config')
+  .action(async (trigger: string, options: { connectedAccount?: string; config?: string; dryRun?: boolean }, command: Command) => {
+    try {
+      const unknownArgs = command.args.filter((arg) => arg !== trigger);
+      await createTrigger(trigger, options, unknownArgs);
+    } catch (error) {
+      printError(friendlyError(error));
+      process.exitCode = 1;
+    }
+  });
+
+triggers
+  .command('listen')
+  .option('--trigger <id>', 'filter by trigger instance id')
+  .option('--trigger-slug <slug...>', 'filter by trigger type slug')
+  .option('--toolkit <slug...>', 'filter by toolkit slug')
+  .option('--connected-account <id>', 'filter by connected account id')
+  .option('--trigger-data <value>', 'filter by trigger data')
+  .option('--user-id <id>', 'filter by Composio user id')
+  .option('--json', 'print full event JSON')
+  .option('--once', 'exit after the first matching event')
+  .description('Stream Composio trigger events into the terminal')
+  .action(async (options: { trigger?: string; triggerSlug?: string[]; toolkit?: string[]; connectedAccount?: string; triggerData?: string; userId?: string; json?: boolean; once?: boolean }) => {
+    try {
+      await listenToTriggers(options);
     } catch (error) {
       printError(friendlyError(error));
       process.exitCode = 1;
