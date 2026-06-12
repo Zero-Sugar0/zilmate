@@ -37,6 +37,7 @@ export async function printWelcomeScreen() {
     ['zilmate doctor', 'Check health and missing config'],
     ['zilmate jobs', 'View the job dashboard'],
     ['zilmate voice doctor', 'Check realtime voice readiness'],
+    ['zilmate camera doctor', 'Check camera readiness'],
     ['zilmate apps status', 'Check Composio app connections'],
   ]);
 }

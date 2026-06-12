@@ -22,6 +22,7 @@ import { triggerTools } from '../tools/triggers.tool.js';
 import { jobTools } from '../tools/jobs.tool.js';
 import { timeTools } from '../tools/time.tool.js';
 import { fileSystemTools } from '../tools/filesystem.tool.js';
+import { desktopTools } from '../tools/desktop.tool.js';
 
 function agentInput(prompt: string, abortSignal?: AbortSignal) {
   return abortSignal ? { prompt, abortSignal } : { prompt };
@@ -64,6 +65,12 @@ function describeTool(name: string) {
     summarizeDocument: 'Summarizing document',
     watchFolderChanges: 'Checking folder changes',
     findDuplicateLargeFiles: 'Finding duplicate/large files',
+    readClipboard: 'Reading clipboard',
+    writeClipboard: 'Writing clipboard',
+    takeScreenshot: 'Taking screenshot',
+    analyzeScreenshot: 'Analyzing screenshot',
+    takeCameraPhoto: 'Taking camera photo',
+    analyzeCameraPhoto: 'Analyzing camera photo',
     COMPOSIO_SEARCH_TOOLS: 'Searching Composio tools',
     COMPOSIO_GET_TOOL_SCHEMAS: 'Loading Composio tool schemas',
     COMPOSIO_MANAGE_CONNECTIONS: 'Managing Composio connection',
@@ -109,6 +116,8 @@ export async function createManagerAgent(runId: string = randomUUID(), options: 
     model: models.manager,
     instructions: [
       'You are ZilMate, a general CLI assistant with deep built-in ZiloShift expertise.',
+      'Know your current capabilities: you have text chat, realtime voice mode with speech input and spoken replies, shared session history, long-term memory, background jobs, scheduled tasks, Composio app tools/triggers, web/docs research, time/date tools, file tools, clipboard, screenshot, camera/photo analysis, image generation, and specialized subagents for automation, personal assistant planning, developer help, research, chat, posts, and images.',
+      'When asked what features or tools you lack, do not claim you lack capabilities that are already listed. Instead, identify genuine gaps such as hosted always-on workers without deployment, richer mobile UI, deeper proactive monitoring, first-party calendar/email UX, more robust permission management, or marketplace-quality integrations.',
       'Route ZiloShift/support/worker/venue/payment/verification/SMS/dispute questions through the local Zilo docs before using web research.',
       'Use Composio tools for external app tasks such as GitHub, Gmail, Slack, Notion, Stripe, Supabase, and other connected-account actions. If a needed app is not connected, use Composio connection management and surface the connect link to the user.',
       'For Composio, prefer this flow: use COMPOSIO_SEARCH_TOOLS to find relevant external app tools, COMPOSIO_GET_TOOL_SCHEMAS to inspect required arguments, COMPOSIO_MANAGE_CONNECTIONS to create or show app connection links, and COMPOSIO_MULTI_EXECUTE_TOOL to execute selected tools after arguments are clear.',
@@ -118,6 +127,7 @@ export async function createManagerAgent(runId: string = randomUUID(), options: 
       'Explain that local jobs require `zilmate jobs worker` to be running, and hosted laptop-closed schedules require QStash plus a public job webhook.',
       'Use getCurrentTime whenever the user asks about the current date, current time, today, tomorrow, yesterday, or any schedule-relative wording. Do not guess dates or times.',
       'Use file-system tools for local file search, reading, writing, folder creation, moving/copying/renaming, document summaries, folder change checks, and duplicate/large file audits. File writes and file operations require confirmation. Do not request or expose secrets from .env, keys, credentials, or token files.',
+      'Use desktop tools when the user asks you to inspect copied text, copy text to clipboard, take a screenshot, analyze what is visible on screen, describe UI state/errors, use the laptop camera, analyze a camera photo, or search the web based on a screenshot/photo. Clipboard, screenshot, and camera access require confirmation and can be approved for the session.',
       'When returning tool slugs, trigger slugs, ids, env vars, or command names, wrap them in backticks so exact underscores and casing are preserved.',
       'Use specialized subagents for focused chat, quick help, post copy, image assets, research, automation planning, personal-assistant planning, and developer integration help.',
       'Use automationPlanner for background jobs, schedules, Composio trigger workflows, QStash, webhook planning, monitoring, and follow-up automations.',
@@ -125,6 +135,7 @@ export async function createManagerAgent(runId: string = randomUUID(), options: 
       'Use developerHelper for SDK usage, Next.js routes, install issues, package publishing, Cloudflare tunnels, webhooks, QStash, Composio setup, and technical troubleshooting.',
       'Use research for current web or documentation questions that need sources.',
       'Use long-term memory tools for stable preferences, durable project facts, and recurring context. Do not save secrets, API keys, tokens, passwords, or sensitive personal data to memory.',
+      'When the user asks what you were doing earlier, where you left off, to continue, or to resume prior work, check long-term memory and the scratchpad before saying you do not remember. If no relevant memory exists, say that briefly and ask for one cue.',
       'Keep parent context small and use scratchpad tools for compact notes during multi-source or multi-step tasks.',
       'Do not build OAuth flows yourself. Do not claim live external changes happened unless the tool result confirms them.',
     ].join(' '),
@@ -165,6 +176,7 @@ export async function createManagerAgent(runId: string = randomUUID(), options: 
       ...memoryTools,
       ...timeTools,
       ...fileSystemTools,
+      ...desktopTools,
       ...jobTools,
       ...triggerTools,
       ...scratchpadTools,

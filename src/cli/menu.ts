@@ -15,6 +15,7 @@ import { printWelcomeScreen } from './welcome.js';
 import { printVoiceConfig, runVoiceDoctor } from './voice.js';
 import { runVoiceSetup, setVoiceEnabled } from './setup.js';
 import { runSelfUpdate } from './update.js';
+import { listCameraDevicesCli, runCameraDoctorCli } from './camera.js';
 
 async function ask(rl: readline.Interface, prompt: string) {
   return (await rl.question(prompt)).trim();
@@ -36,6 +37,7 @@ export async function startMainMenu() {
         ['8', 'Trigger workflows'],
         ['9', 'Voice setup/status'],
         ['10', 'Update ZilMate'],
+        ['11', 'Camera tools'],
         ['0', 'Exit'],
       ]);
 
@@ -104,6 +106,15 @@ export async function startMainMenu() {
           await runSelfUpdate();
           return;
         }
+      } else if (choice === '11') {
+        printPanel('Camera actions', [
+          ['1', 'Camera doctor'],
+          ['2', 'List camera devices'],
+          ['0', 'Back'],
+        ]);
+        const cameraChoice = await ask(rl, 'Select: ');
+        if (cameraChoice === '1') await runCameraDoctorCli();
+        if (cameraChoice === '2') await listCameraDevicesCli();
       }
       await ask(rl, '\nPress Enter to continue...');
     }

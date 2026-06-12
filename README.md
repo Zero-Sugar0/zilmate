@@ -2,6 +2,10 @@
 
 ZilMate is a CLI-first general assistant with deep built-in ZiloShift expertise. It can chat, answer support questions, draft posts, research docs/web sources, generate image assets, and use Composio for external app tools such as GitHub, Gmail, Slack, Notion, Stripe, and Supabase.
 
+ZilMate can also work with local files inside safe configured roots: search files/folders, read text files, write approved files, create folders, move/copy/rename, summarize documents, compare folder snapshots for changes, and find duplicate or large files. Sensitive files such as `.env`, keys, credentials, and token-looking paths are blocked.
+
+It can also use approved desktop context: read/write clipboard text, take screenshots, open the laptop camera for a still photo, and analyze screenshots/photos with `google/gemini-3.1-flash-lite` by default. Screenshot analysis describes visible UI, extracts visible text when possible, identifies errors or unusual states, and can optionally search the web for troubleshooting context. Camera photo analysis describes visible objects, environments, documents, devices, or issues without identifying people or inferring sensitive traits.
+
 The GitHub project can remain `zilo-manager`, but the installable npm package and command are both `zilmate`.
 
 ## Install ZilMate
@@ -95,6 +99,7 @@ Before asking for secrets, setup shows what to have ready:
 - Optional cloud memory/jobs: Upstash Redis URL and token.
 - Optional hosted schedules: QStash token and public webhook URL.
 - Optional realtime voice: Deepgram key.
+- Optional camera capture: `ffmpeg` installed on PATH.
 
 Then it asks for `AI_GATEWAY_API_KEY` and guides users through optional features:
 
@@ -105,6 +110,9 @@ Then it asks for `AI_GATEWAY_API_KEY` and guides users through optional features
 - Upstash QStash hosted schedules.
 - Composio trigger-to-job workflows.
 - Deepgram realtime voice mode.
+- Local file tool roots.
+- Screenshot/photo vision model.
+- Camera dependency and device setup.
 
 Every optional feature can be skipped. If users only want chat, they only need the AI Gateway key.
 
@@ -115,13 +123,14 @@ zilmate voice setup
 zilmate voice enable
 zilmate voice disable
 zilmate voice doctor
+zilmate voice devices
+zilmate voice live
 ```
 
-Inside `zilmate talk`, use `/voice` to switch the current chat session into voice-style mode and `/voice -q` to stop it:
+Inside `zilmate talk`, use `/voice` to start a live terminal voice session. Speak naturally, then press Enter to stop voice and return to typed chat:
 
 ```text
 /voice
-/voice -q
 ```
 
 You can also create `.env` manually:
@@ -147,6 +156,10 @@ ZILMATE_VOICE_TTS_MODEL=aura-2-thalia-en
 ZILMATE_VOICE_LANGUAGE=en
 ZILMATE_VOICE_LANGUAGE_HINTS=
 ZILMATE_VOICE_BARGE_IN=true
+ZILMATE_VOICE_INPUT_DEVICE=
+ZILMATE_SCREENSHOT_MODEL=google/gemini-3.1-flash-lite
+ZILMATE_CAMERA_DEVICE=
+ZILMATE_FILE_ROOTS=
 ZILO_MANAGER_MODEL=minimax/minimax-m3
 ZILO_HELP_MODEL=alibaba/qwen3.7-plus
 ZILO_POST_MODEL=alibaba/qwen3.7-plus
@@ -162,9 +175,13 @@ Redis is optional. If `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` ar
 
 Background jobs are optional. Setup explains the difference between local jobs and hosted schedules. Local jobs and local schedules run while `zilmate jobs worker` is running. They do not keep running after a laptop sleeps, shuts down, or loses internet. For hosted schedules that can fire while the local machine is closed, configure QStash plus a public job webhook URL.
 
-Realtime voice is optional. If `DEEPGRAM_API_KEY` and `ZILMATE_VOICE_ENABLED=true` are set, ZilMate can open Deepgram Voice Agent sessions. The default listen model is `flux-general-en` with `v2` because Flux is designed for low-latency voice agents and model-integrated end-of-turn detection. The default spoken voice is `aura-2-thalia-en`. Browser voice should use platform echo cancellation through `getUserMedia`; terminal microphone capture needs a local audio adapter.
+Realtime voice is optional. If `DEEPGRAM_API_KEY` and `ZILMATE_VOICE_ENABLED=true` are set, ZilMate uses Deepgram Flux for listening/end-of-turn, routes transcripts through the ZilMate manager/tools/subagents, and speaks replies with Deepgram Aura-2 websocket TTS. The default listen model is `flux-general-en` with `v2`. The default spoken voice is `aura-2-thalia-en`. Terminal live voice uses `ffmpeg` for microphone capture and `ffplay` for spoken replies. If the default microphone is not detected, run `zilmate voice devices`, then set `ZILMATE_VOICE_INPUT_DEVICE`.
 
 Use `zilmate voice setup` for a focused voice-only wizard. Use `zilmate voice enable` and `zilmate voice disable` to toggle voice later without editing config files.
+
+Camera capture is optional. During `zilmate setup`, ZilMate checks for `ffmpeg`, asks before installing it, and then runs a camera readiness check. If the automatic installer is not available, setup keeps going and tells the user to run `zilmate camera doctor`.
+
+Local file tools are optional. During setup, users can keep the default current-folder access or add comma-separated roots through `ZILMATE_FILE_ROOTS`.
 
 For unattended setup or installers, pass the options directly:
 
@@ -173,6 +190,11 @@ zilmate setup --yes --ai-gateway-key <key> --jobs-enabled true
 zilmate setup --yes --ai-gateway-key <key> --composio-key <key> --trigger-workflows-enabled true
 zilmate setup --yes --ai-gateway-key <key> --qstash-token <token> --job-webhook-url https://example.com/api/zilmate/jobs
 zilmate setup --yes --ai-gateway-key <key> --voice-enabled true --deepgram-key <key>
+zilmate setup --yes --ai-gateway-key <key> --voice-input-device "audio=Microphone Array"
+zilmate setup --yes --ai-gateway-key <key> --install-camera-deps true
+zilmate setup --yes --ai-gateway-key <key> --camera-device "video=Integrated Camera"
+zilmate setup --yes --ai-gateway-key <key> --file-roots "C:\Users\me\Documents,C:\work"
+zilmate setup --yes --ai-gateway-key <key> --screenshot-model google/gemini-3.1-flash-lite
 ```
 
 ## Development Commands
@@ -260,7 +282,13 @@ zilmate voice setup
 zilmate voice disable
 zilmate voice enable
 zilmate voice turn "Plan my next two hours"
+zilmate voice devices
+zilmate voice live
 zilmate voice agent-probe
+zilmate camera doctor
+zilmate camera list
+zilmate camera capture
+zilmate camera capture --device "video=Integrated Camera"
 zilmate remember "Use a warm but concise support tone"
 zilmate recall support
 zilmate memory list
@@ -340,6 +368,9 @@ For UI integrations, pass `onProgress` to render agent/tool progress and `confir
 - `jobs run <id>`: run a queued job immediately.
 - `jobs worker`: run the local job processor and local scheduler.
 - `jobs cancel <id>`: cancel one job.
+- `camera doctor`: check OS, ffmpeg availability, detected camera devices, and fallback candidates.
+- `camera list`: list camera device names ZilMate can try.
+- `camera capture`: capture one still image, with retry across common device names unless `--device` is provided.
 - `help`: fast troubleshooting and app guidance.
 - `chat`: one-shot natural dialogue about ZiloShift workflows.
 - `post`: WhatsApp/status/social copy generation.
@@ -364,6 +395,10 @@ ZilMate uses a manager agent that delegates to focused subagents and external to
 - Composio: external app discovery, auth links, schemas, and execution, attached only to the manager.
 - Memory: durable ZilMate facts and preferences saved locally or in Redis, available through CLI commands and manager tools.
 - Jobs: background task creation, schedule setup, status checks, logs, and cancellation available through CLI, SDK, and manager tools.
+- Files: local file search, safe reading, approved writes, folder creation, move/copy/rename, document summaries, folder-change snapshots, and duplicate/large-file audits.
+- Desktop: approved clipboard access, screenshot capture, laptop camera still capture, and Gemini-powered screenshot/photo understanding. Ask naturally inside `zilmate talk`, such as "look at my screen and explain the error", "look through my camera and describe this device", "search this folder for billing docs", or "copy that command to my clipboard".
+
+Camera capture requires `ffmpeg` on PATH. On Windows, install with `winget install Gyan.FFmpeg`; on macOS, use `brew install ffmpeg`; on Linux, install `ffmpeg` from your package manager. Run `zilmate camera doctor` to verify OS support and `zilmate camera list` to get exact device names. If Windows reports a custom camera name, set `ZILMATE_CAMERA_DEVICE=video=Your Camera Name` or pass `--device "video=Your Camera Name"`. Clipboard, screenshot, and camera access always ask for approval in agent mode, and can be approved for the current session with `s=session`.
 
 Local ZiloShift docs live under `src/doc/`. ZilMate reads them on demand through dedicated tools instead of dumping all docs into every prompt. The manager prefers these local docs for ZiloShift support, worker, venue, payment, verification, SMS, and dispute questions.
 

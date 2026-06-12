@@ -24,8 +24,9 @@ import { startDefaultLauncher, startMainMenu } from './cli/menu.js';
 import { printDoctorChecks } from './cli/health.js';
 import { printAppsStatus } from './cli/apps.js';
 import { printMemoryTable } from './cli/memory.js';
-import { printVoiceConfig, runVoiceAgentProbe, runVoiceDoctor, runVoiceTurn } from './cli/voice.js';
+import { listVoiceDevices, printVoiceConfig, runTerminalVoiceLive, runVoiceAgentProbe, runVoiceDoctor, runVoiceSpeakTest, runVoiceTurn } from './cli/voice.js';
 import { printVersionStatus, runSelfUpdate } from './cli/update.js';
+import { captureCameraCli, listCameraDevicesCli, runCameraDoctorCli } from './cli/camera.js';
 
 type TextAgentFactory = () => { generate: (input: { prompt: string }) => Promise<{ text: string }> };
 
@@ -53,7 +54,7 @@ const program = new Command();
 program
   .name('zilmate')
   .description('ZilMate CLI agent for ZiloShift workflows')
-  .version('1.1.0');
+  .version('1.2.0');
 
 program
   .command('welcome')
@@ -129,8 +130,13 @@ program
   .option('--voice-listen-model <model>', 'Deepgram listen model, e.g. flux-general-en or flux-general-multi')
   .option('--voice-tts-model <model>', 'Deepgram Aura TTS model, e.g. aura-2-thalia-en')
   .option('--voice-language <language>', 'voice language, e.g. en or en-US')
+  .option('--voice-input-device <device>', 'terminal microphone device override for ffmpeg')
+  .option('--screenshot-model <model>', 'vision model for screenshot/camera analysis')
+  .option('--file-roots <roots>', 'comma-separated extra safe roots for file tools')
+  .option('--camera-device <device>', 'optional camera device override, e.g. "video=Integrated Camera"')
+  .option('--install-camera-deps <true|false>', 'install ffmpeg for camera capture when missing')
   .description('Create or update a local .env file for ZilMate')
-  .action(async (options: { path: string; force?: boolean; yes?: boolean; aiGatewayKey?: string; composioKey?: string; zilmateUserId?: string; tavilyKey?: string; redisUrl?: string; redisToken?: string; jobsEnabled?: string; qstashToken?: string; jobWebhookUrl?: string; jobWebhookSecret?: string; triggerWorkflowsEnabled?: string; deepgramKey?: string; voiceEnabled?: string; voiceListenModel?: string; voiceTtsModel?: string; voiceLanguage?: string }) => {
+  .action(async (options: { path: string; force?: boolean; yes?: boolean; aiGatewayKey?: string; composioKey?: string; zilmateUserId?: string; tavilyKey?: string; redisUrl?: string; redisToken?: string; jobsEnabled?: string; qstashToken?: string; jobWebhookUrl?: string; jobWebhookSecret?: string; triggerWorkflowsEnabled?: string; deepgramKey?: string; voiceEnabled?: string; voiceListenModel?: string; voiceTtsModel?: string; voiceLanguage?: string; voiceInputDevice?: string; screenshotModel?: string; fileRoots?: string; cameraDevice?: string; installCameraDeps?: string }) => {
     try {
       await runSetup({
         path: options.path,
@@ -152,6 +158,11 @@ program
         ...(options.voiceListenModel !== undefined ? { voiceListenModel: options.voiceListenModel } : {}),
         ...(options.voiceTtsModel !== undefined ? { voiceTtsModel: options.voiceTtsModel } : {}),
         ...(options.voiceLanguage !== undefined ? { voiceLanguage: options.voiceLanguage } : {}),
+        ...(options.voiceInputDevice !== undefined ? { voiceInputDevice: options.voiceInputDevice } : {}),
+        ...(options.screenshotModel !== undefined ? { screenshotModel: options.screenshotModel } : {}),
+        ...(options.fileRoots !== undefined ? { fileRoots: options.fileRoots } : {}),
+        ...(options.cameraDevice !== undefined ? { cameraDevice: options.cameraDevice } : {}),
+        ...(options.installCameraDeps !== undefined ? { installCameraDeps: options.installCameraDeps } : {}),
       });
     } catch (error) {
       printError(friendlyError(error));
@@ -249,11 +260,101 @@ voice
 voice
   .command('turn')
   .argument('<transcript...>', 'spoken user text to route through the ZilMate voice brain')
-  .option('-s, --session <id>', 'persistent voice session id', 'voice-default')
+  .option('-s, --session <id>', 'persistent voice session id', 'default')
   .description('Test the ZilMate voice brain with a transcript')
   .action(async (transcript: string[], options: { session: string }) => {
     try {
       await runVoiceTurn(transcript.join(' '), options.session);
+    } catch (error) {
+      printError(friendlyError(error));
+      process.exitCode = 1;
+    }
+  });
+
+const camera = program
+  .command('camera')
+  .description('Diagnose and use the laptop camera for ZilMate desktop tools')
+  .action(async () => {
+    try {
+      await runCameraDoctorCli();
+    } catch (error) {
+      printError(friendlyError(error));
+      process.exitCode = 1;
+    }
+  });
+
+camera
+  .command('doctor')
+  .description('Check camera readiness, OS support, ffmpeg, and default device candidates')
+  .action(async () => {
+    try {
+      await runCameraDoctorCli();
+    } catch (error) {
+      printError(friendlyError(error));
+      process.exitCode = 1;
+    }
+  });
+
+camera
+  .command('list')
+  .description('List camera devices ZilMate can try')
+  .action(async () => {
+    try {
+      await listCameraDevicesCli();
+    } catch (error) {
+      printError(friendlyError(error));
+      process.exitCode = 1;
+    }
+  });
+
+camera
+  .command('capture')
+  .option('--device <device>', 'camera input to use, e.g. "video=Integrated Camera" or /dev/video0')
+  .description('Capture one still image from the laptop camera')
+  .action(async (options: { device?: string }) => {
+    try {
+      await captureCameraCli(options);
+    } catch (error) {
+      printError(friendlyError(error));
+      process.exitCode = 1;
+    }
+  });
+
+voice
+  .command('devices')
+  .description('List terminal microphone devices for live voice')
+  .action(async () => {
+    try {
+      await listVoiceDevices();
+    } catch (error) {
+      printError(friendlyError(error));
+      process.exitCode = 1;
+    }
+  });
+
+voice
+  .command('live')
+  .option('-s, --session <id>', 'persistent voice session id', 'default')
+  .description('Start live terminal microphone voice mode')
+  .action(async (options: { session: string }) => {
+    try {
+      const command = await runTerminalVoiceLive(options.session);
+      if (command === 'talk') {
+        await startInteractiveChat(options.session);
+      }
+    } catch (error) {
+      printError(friendlyError(error));
+      process.exitCode = 1;
+    }
+  });
+
+voice
+  .command('speak-test')
+  .argument('[text...]', 'text to speak through Deepgram Aura and ffplay')
+  .description('Test ZilMate speaker output without using the microphone')
+  .action(async (text: string[]) => {
+    try {
+      await runVoiceSpeakTest(text.length > 0 ? text.join(' ') : undefined);
     } catch (error) {
       printError(friendlyError(error));
       process.exitCode = 1;

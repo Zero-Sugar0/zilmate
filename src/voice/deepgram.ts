@@ -2,27 +2,21 @@ import { randomUUID } from 'node:crypto';
 import { env, requireDeepgram } from '../config/env.js';
 import type { ZilMateVoiceConfig, ZilMateVoiceEvent, ZilMateVoiceSessionOptions, ZilMateVoiceSessionResult } from './types.js';
 
-type DeepgramClientConstructor = new (options: { apiKey: string }) => {
-  agent: {
-    v1: {
-      connect: () => Promise<DeepgramAgentConnection>;
-    };
-  };
+type DeepgramClient = {
+  agent: () => DeepgramAgentConnection;
 };
 
 type DeepgramAgentConnection = {
   on: (event: string, handler: (data: unknown) => void | Promise<void>) => void;
-  connect: () => void;
-  waitForOpen: () => Promise<void>;
-  sendSettings: (settings: unknown) => void;
-  sendKeepAlive: (message: { type: 'KeepAlive' }) => void;
-  sendMedia: (chunk: Buffer | Uint8Array) => void;
-  finish?: () => void;
-  close?: () => void;
+  configure: (settings: unknown) => void;
+  keepAlive: () => void;
+  send: (chunk: Buffer | Uint8Array) => void;
+  injectAgentMessage: (content: string) => void;
+  disconnect: () => void;
 };
 
 type DeepgramModule = {
-  DeepgramClient: DeepgramClientConstructor;
+  createClient: (apiKey: string) => DeepgramClient;
 };
 
 const dynamicImport = new Function('specifier', 'return import(specifier)') as (specifier: string) => Promise<unknown>;
@@ -51,7 +45,7 @@ export function getVoiceConfig(): ZilMateVoiceConfig {
 
 export async function loadDeepgramClient() {
   const module = await dynamicImport('@deepgram/sdk') as DeepgramModule;
-  return new module.DeepgramClient({ apiKey: requireDeepgram() });
+  return module.createClient(requireDeepgram());
 }
 
 export async function checkVoiceRuntime() {
@@ -104,7 +98,6 @@ function voiceSettings() {
   }
 
   return {
-    type: 'Settings',
     audio: {
       input: {
         encoding: 'linear16',
@@ -126,7 +119,12 @@ function voiceSettings() {
           type: 'open_ai',
           model: 'gpt-4o-mini',
         },
-        prompt: 'You are ZilMate voice transport. Keep replies short and conversational.',
+        prompt: [
+          'You are only the realtime voice transport for ZilMate.',
+          'Do not claim limitations, tools, identity, training data, browsing ability, or assistant capabilities.',
+          'Keep any automatic response extremely brief while the real ZilMate brain prepares an injected reply.',
+          'If unsure, say only: One moment.',
+        ].join(' '),
       },
       speak: {
         provider: {
@@ -171,19 +169,47 @@ export async function startDeepgramVoiceAgentSession(options: ZilMateVoiceSessio
   const sessionId = options.sessionId || `voice_${randomUUID()}`;
   const events: ZilMateVoiceEvent[] = [];
   const deepgram = await loadDeepgramClient();
-  const connection = await deepgram.agent.v1.connect();
+  const connection = deepgram.agent();
+  let settingsSent = false;
+  let settingsReadyResolve: () => void;
+  const settingsReady = new Promise<void>((resolve) => {
+    settingsReadyResolve = resolve;
+  });
 
-  connection.on('message', async (data) => {
+  const handleMessage = async (data: unknown) => {
     if (data && typeof data === 'object' && 'type' in data) {
       const record = data as Record<string, unknown>;
       if (record.type === 'Welcome') {
         emit(events, options, { type: 'status', label: 'Deepgram connected', timestamp: now() });
-        connection.sendSettings(voiceSettings());
+        if (!settingsSent) {
+          settingsSent = true;
+          connection.configure(voiceSettings());
+        }
+        return;
+      }
+      if (record.type === 'SettingsApplied') {
+        settingsReadyResolve();
+        emit(events, options, { type: 'status', label: 'Voice settings applied', timestamp: now() });
         return;
       }
       if (record.type === 'ConversationText') {
         const event = conversationEvent(record);
-        if (event) emit(events, options, event);
+        if (event) {
+          emit(events, options, event);
+          if (event.type === 'transcript' && event.role === 'user' && event.text.trim() && options.onUserTranscript) {
+            const answer = await options.onUserTranscript(event.text);
+            if (answer && typeof answer === 'string') {
+              emit(events, options, {
+                type: 'transcript',
+                role: 'assistant',
+                text: answer,
+                final: true,
+                timestamp: now(),
+              });
+              connection.injectAgentMessage(answer);
+            }
+          }
+        }
         return;
       }
       if (record.type === 'UserStartedSpeaking') {
@@ -204,32 +230,50 @@ export async function startDeepgramVoiceAgentSession(options: ZilMateVoiceSessio
     }
 
     if (data instanceof Uint8Array) {
+      options.onAudio?.(data);
+      emit(events, options, { type: 'audio', bytes: data.byteLength, timestamp: now() });
+    }
+  };
+
+  connection.on('Welcome', handleMessage);
+  connection.on('SettingsApplied', handleMessage);
+  connection.on('ConversationText', handleMessage);
+  connection.on('UserStartedSpeaking', handleMessage);
+  connection.on('AgentThinking', handleMessage);
+  connection.on('AgentStartedSpeaking', handleMessage);
+  connection.on('AgentAudioDone', handleMessage);
+  connection.on('Unhandled', handleMessage);
+  connection.on('Audio', async (data) => {
+    if (data instanceof Uint8Array) {
+      options.onAudio?.(data);
       emit(events, options, { type: 'audio', bytes: data.byteLength, timestamp: now() });
     }
   });
 
-  connection.on('open', () => {
+  connection.on('Open', () => {
     emit(events, options, { type: 'status', label: 'Voice socket opened', timestamp: now() });
   });
 
-  connection.on('close', () => {
+  connection.on('Close', () => {
     emit(events, options, { type: 'status', label: 'Voice socket closed', timestamp: now() });
   });
 
-  connection.on('error', (error) => {
-    emit(events, options, { type: 'error', message: error instanceof Error ? error.message : String(error), timestamp: now() });
+  connection.on('Error', (error) => {
+    const message = error instanceof Error
+      ? error.message
+      : typeof error === 'object'
+        ? JSON.stringify(error)
+        : String(error);
+    emit(events, options, { type: 'error', message, timestamp: now() });
   });
 
-  connection.connect();
-  await connection.waitForOpen();
-
-  const keepAlive = setInterval(() => connection.sendKeepAlive({ type: 'KeepAlive' }), 5000);
+  const keepAlive = setInterval(() => connection.keepAlive(), 5000);
   try {
     if (options.audio) {
+      await settingsReady;
       for await (const chunk of options.audio) {
-        connection.sendMedia(chunk);
+        connection.send(chunk);
       }
-      connection.finish?.();
     } else {
       emit(events, options, {
         type: 'status',
@@ -240,6 +284,7 @@ export async function startDeepgramVoiceAgentSession(options: ZilMateVoiceSessio
     }
   } finally {
     clearInterval(keepAlive);
+    connection.disconnect();
   }
 
   return { sessionId, events };

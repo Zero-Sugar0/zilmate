@@ -22,6 +22,8 @@ export type ZilMateVoiceSessionOptions = {
   sessionId?: string;
   audio?: AsyncIterable<Buffer | Uint8Array>;
   onEvent?: (event: ZilMateVoiceEvent) => void;
+  onAudio?: (chunk: Uint8Array) => void;
+  onUserTranscript?: (text: string) => Promise<string | void> | string | void;
   onProgress?: (event: ProgressEvent) => void;
 };
 

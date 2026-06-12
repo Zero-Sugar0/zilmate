@@ -37,6 +37,7 @@ export type Env = {
   zilmateVoiceLanguage: string;
   zilmateVoiceLanguageHints: string[];
   zilmateVoiceBargeIn: boolean;
+  zilmateVoicePlaybackMode: string;
   managerModel: string;
   helpModel: string | undefined;
   postModel: string | undefined;
@@ -44,6 +45,7 @@ export type Env = {
   imageOpenaiModel: string;
   imageGeminiModel: string;
   imageModel: string;
+  screenshotVisionModel: string;
 };
 
 export const env: Env = {
@@ -68,6 +70,7 @@ export const env: Env = {
   zilmateVoiceLanguage: process.env.ZILMATE_VOICE_LANGUAGE || 'en',
   zilmateVoiceLanguageHints: (process.env.ZILMATE_VOICE_LANGUAGE_HINTS || '').split(',').map((item) => item.trim()).filter(Boolean),
   zilmateVoiceBargeIn: process.env.ZILMATE_VOICE_BARGE_IN !== 'false',
+  zilmateVoicePlaybackMode: process.env.ZILMATE_VOICE_PLAYBACK_MODE || 'stream',
   managerModel: process.env.ZILO_MANAGER_MODEL || 'minimax/minimax-m3',
   helpModel: process.env.ZILO_HELP_MODEL || undefined,
   postModel: process.env.ZILO_POST_MODEL || undefined,
@@ -75,6 +78,7 @@ export const env: Env = {
   imageOpenaiModel: process.env.ZILO_IMAGE_OPENAI_MODEL || 'openai/gpt-image-2',
   imageGeminiModel: process.env.ZILO_IMAGE_GEMINI_MODEL || process.env.ZILO_IMAGE_MODEL || 'google/gemini-3-pro-image',
   imageModel: process.env.ZILO_IMAGE_MODEL || 'google/gemini-3-pro-image',
+  screenshotVisionModel: process.env.ZILMATE_SCREENSHOT_MODEL || 'google/gemini-3.1-flash-lite',
 };
 
 export function hasGatewayAuth() {

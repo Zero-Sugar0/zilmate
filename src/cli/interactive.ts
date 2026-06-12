@@ -9,6 +9,7 @@ import { memoryBackendName } from '../memory/redis.js';
 import { printAssistant, printProgress, printStatus, printUserPrompt, printZilMateBanner } from './format.js';
 import { createReadlineConfirmation } from './confirm.js';
 import { checkVoiceRuntime, getVoiceConfig } from '../voice/deepgram.js';
+import { runTerminalVoiceLive } from './voice.js';
 
 function transcript(turns: ChatTurn[]) {
   if (turns.length === 0) return '';
@@ -25,7 +26,7 @@ function memoryBlock(memories: Awaited<ReturnType<typeof recall>>) {
 
 export async function startInteractiveChat(sessionId = 'default') {
   requireGatewayAuth();
-  const rl = readline.createInterface({ input, output });
+  let rl = readline.createInterface({ input, output });
   let turns = await loadTurns(sessionId);
   const runId = randomUUID();
   let voiceMode = false;
@@ -65,9 +66,16 @@ export async function startInteractiveChat(sessionId = 'default') {
           console.log('Voice needs the Deepgram SDK installed. Run `npm install`, then `zilmate voice doctor`.');
           continue;
         }
-        voiceMode = true;
-        console.log(`Voice mode is on for this chat session. Model: ${config.listenModel} -> ${config.ttsModel}.`);
-        console.log('Terminal live microphone streaming is still being wired; for now, type what you said and ZilMate will treat it as a voice turn.');
+        console.log(`Voice mode is starting. Model: ${config.listenModel} -> ${config.ttsModel}.`);
+        rl.close();
+        try {
+          const command = await runTerminalVoiceLive(sessionId);
+          turns = await loadTurns(sessionId);
+          if (command === 'exit') break;
+        } catch (error) {
+          console.log(error instanceof Error ? error.message : String(error));
+        }
+        rl = readline.createInterface({ input, output });
         continue;
       }
       if (message === '/voice -q' || message === '/voice off' || message === '/voice stop') {

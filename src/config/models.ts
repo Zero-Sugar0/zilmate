@@ -11,6 +11,7 @@ export type ModelRegistry = {
   imageOpenai: string;
   imageGemini: string;
   image: string;
+  screenshotVision: string;
 };
 
 const cheapModelCandidates = [
@@ -30,6 +31,7 @@ export const models: ModelRegistry = {
   imageOpenai: env.imageOpenaiModel,
   imageGemini: env.imageGeminiModel,
   image: env.imageDefaultProvider === 'gemini' ? env.imageGeminiModel : env.imageOpenaiModel,
+  screenshotVision: env.screenshotVisionModel,
 };
 
 export type ModelAvailability = {

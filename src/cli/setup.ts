@@ -1,10 +1,15 @@
 import { existsSync } from 'node:fs';
 import { readFile, writeFile } from 'node:fs/promises';
 import { randomBytes, randomUUID } from 'node:crypto';
+import { execFile, spawn } from 'node:child_process';
+import { promisify } from 'node:util';
 import readline from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
 import chalk from 'chalk';
 import { printPanel, printZilMateBanner } from './format.js';
+import { runCameraDoctor } from '../tools/desktop.tool.js';
+
+const execFileAsync = promisify(execFile);
 
 type SetupOptions = {
   path?: string;
@@ -26,6 +31,11 @@ type SetupOptions = {
   voiceListenModel?: string;
   voiceTtsModel?: string;
   voiceLanguage?: string;
+  voiceInputDevice?: string;
+  cameraDevice?: string;
+  installCameraDeps?: string;
+  screenshotModel?: string;
+  fileRoots?: string;
 };
 
 const defaults = {
@@ -36,6 +46,10 @@ const defaults = {
   ZILO_IMAGE_OPENAI_MODEL: 'openai/gpt-image-2',
   ZILO_IMAGE_GEMINI_MODEL: 'google/gemini-3-pro-image',
   ZILO_IMAGE_MODEL: '',
+  ZILMATE_VOICE_INPUT_DEVICE: '',
+  ZILMATE_SCREENSHOT_MODEL: 'google/gemini-3.1-flash-lite',
+  ZILMATE_CAMERA_DEVICE: '',
+  ZILMATE_FILE_ROOTS: '',
 };
 
 function normalizeBooleanOption(value: string | undefined, fallback = false) {
@@ -88,6 +102,66 @@ async function askYesNo(rl: readline.Interface, prompt: string, defaultValue = f
   return answer === 'y' || answer === 'yes';
 }
 
+async function askSection(rl: readline.Interface, title: string, description: string, prompt: string, defaultValue = false) {
+  console.log(chalk.cyan(`\n${title}`));
+  console.log(chalk.gray(description));
+  return askYesNo(rl, prompt, defaultValue);
+}
+
+async function commandExists(command: string) {
+  const probe = process.platform === 'win32' ? 'where.exe' : 'which';
+  try {
+    await execFileAsync(probe, [command], { windowsHide: true, timeout: 5000 });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function cameraInstallCommand(): { command: string; args: string[]; label: string } | undefined {
+  if (process.platform === 'win32') {
+    return {
+      command: 'winget',
+      args: ['install', '--id', 'Gyan.FFmpeg', '-e', '--accept-package-agreements', '--accept-source-agreements'],
+      label: 'winget install --id Gyan.FFmpeg -e',
+    };
+  }
+  if (process.platform === 'darwin') return { command: 'brew', args: ['install', 'ffmpeg'], label: 'brew install ffmpeg' };
+  if (process.platform === 'linux') return { command: 'sudo', args: ['apt-get', 'install', '-y', 'ffmpeg'], label: 'sudo apt-get install -y ffmpeg' };
+  return undefined;
+}
+
+async function installCameraDependency() {
+  const install = cameraInstallCommand();
+  if (!install) {
+    console.log(chalk.yellow('No automatic ffmpeg installer is known for this OS. Install ffmpeg manually, then run `zilmate camera doctor`.'));
+    return false;
+  }
+  if (process.platform === 'win32' && !(await commandExists('winget'))) {
+    console.log(chalk.yellow('winget is not available. Install ffmpeg manually or with another package manager, then run `zilmate camera doctor`.'));
+    return false;
+  }
+  if (process.platform === 'darwin' && !(await commandExists('brew'))) {
+    console.log(chalk.yellow('Homebrew is not available. Install Homebrew or install ffmpeg manually, then run `zilmate camera doctor`.'));
+    return false;
+  }
+  if (process.platform === 'linux' && !(await commandExists('sudo'))) {
+    console.log(chalk.yellow(`Automatic install needs sudo. Run manually: ${install.label}`));
+    return false;
+  }
+
+  console.log(chalk.gray(`Running: ${install.label}`));
+  await new Promise<void>((resolve, reject) => {
+    const child = spawn(install.command, install.args, { stdio: 'inherit', windowsHide: false });
+    child.on('error', reject);
+    child.on('close', (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(`${install.label} exited with code ${code}`));
+    });
+  });
+  return commandExists('ffmpeg');
+}
+
 function buildEnv(values: Map<string, string>) {
   const lines: Array<[string, string]> = [
     ['AI_GATEWAY_API_KEY', values.get('AI_GATEWAY_API_KEY') || ''],
@@ -110,6 +184,10 @@ function buildEnv(values: Map<string, string>) {
     ['ZILMATE_VOICE_LANGUAGE', values.get('ZILMATE_VOICE_LANGUAGE') || 'en'],
     ['ZILMATE_VOICE_LANGUAGE_HINTS', values.get('ZILMATE_VOICE_LANGUAGE_HINTS') || ''],
     ['ZILMATE_VOICE_BARGE_IN', values.get('ZILMATE_VOICE_BARGE_IN') || 'true'],
+    ['ZILMATE_VOICE_INPUT_DEVICE', values.get('ZILMATE_VOICE_INPUT_DEVICE') || defaults.ZILMATE_VOICE_INPUT_DEVICE],
+    ['ZILMATE_SCREENSHOT_MODEL', values.get('ZILMATE_SCREENSHOT_MODEL') || defaults.ZILMATE_SCREENSHOT_MODEL],
+    ['ZILMATE_CAMERA_DEVICE', values.get('ZILMATE_CAMERA_DEVICE') || defaults.ZILMATE_CAMERA_DEVICE],
+    ['ZILMATE_FILE_ROOTS', values.get('ZILMATE_FILE_ROOTS') || defaults.ZILMATE_FILE_ROOTS],
     ['ZILO_MANAGER_MODEL', values.get('ZILO_MANAGER_MODEL') || defaults.ZILO_MANAGER_MODEL],
     ['ZILO_HELP_MODEL', values.get('ZILO_HELP_MODEL') || defaults.ZILO_HELP_MODEL],
     ['ZILO_POST_MODEL', values.get('ZILO_POST_MODEL') || defaults.ZILO_POST_MODEL],
@@ -130,6 +208,7 @@ function printSetupPrep() {
     ['Memory/jobs', 'Upstash Redis keys if you want cloud-backed storage'],
     ['Hosted schedules', 'QStash token and public webhook URL if needed'],
     ['Voice', 'Deepgram key if you want realtime voice'],
+    ['Camera', 'ffmpeg if you want laptop camera capture'],
   ]);
   console.log(chalk.gray('You can skip any optional section and run setup again later.'));
 }
@@ -184,6 +263,10 @@ export async function runSetup(options: SetupOptions = {}) {
     }
     if (options.voiceTtsModel !== undefined) values.set('ZILMATE_VOICE_TTS_MODEL', options.voiceTtsModel);
     if (options.voiceLanguage !== undefined) values.set('ZILMATE_VOICE_LANGUAGE', options.voiceLanguage);
+    if (options.voiceInputDevice !== undefined) values.set('ZILMATE_VOICE_INPUT_DEVICE', options.voiceInputDevice);
+    if (options.cameraDevice !== undefined) values.set('ZILMATE_CAMERA_DEVICE', options.cameraDevice);
+    if (options.screenshotModel !== undefined) values.set('ZILMATE_SCREENSHOT_MODEL', options.screenshotModel);
+    if (options.fileRoots !== undefined) values.set('ZILMATE_FILE_ROOTS', options.fileRoots);
 
     const currentGatewayKey = values.get('AI_GATEWAY_API_KEY');
     if (options.aiGatewayKey) {
@@ -201,21 +284,39 @@ export async function runSetup(options: SetupOptions = {}) {
       values.set('ZILMATE_USER_ID', `zilmate-${randomUUID()}`);
     }
 
-    if (!options.yes && options.composioKey === undefined && await askYesNo(rl, 'Enable Composio app tools?', Boolean(values.get('COMPOSIO_API_KEY')))) {
+    if (!options.yes && options.composioKey === undefined && await askSection(
+      rl,
+      'Composio app tools',
+      'Connectors let ZilMate use apps like Gmail, Slack, GitHub, Notion, Supabase, Stripe, Linear, Discord, and more through Composio.',
+      'Enable Composio app tools?',
+      Boolean(values.get('COMPOSIO_API_KEY')),
+    )) {
       const composioKey = await askOptionalSecret(rl, 'COMPOSIO_API_KEY (blank to skip): ');
       values.set('COMPOSIO_API_KEY', composioKey);
     } else if (!options.yes && options.composioKey === undefined) {
       values.set('COMPOSIO_API_KEY', '');
     }
 
-    if (!options.yes && options.tavilyKey === undefined && await askYesNo(rl, 'Enable Tavily web research?', Boolean(values.get('TAVILY_API_KEY')))) {
+    if (!options.yes && options.tavilyKey === undefined && await askSection(
+      rl,
+      'Web research',
+      'Tavily enables live web search, extraction, crawling, mapping, and deeper research when local knowledge is not enough.',
+      'Enable Tavily web research?',
+      Boolean(values.get('TAVILY_API_KEY')),
+    )) {
       const tavilyKey = await askOptionalSecret(rl, 'TAVILY_API_KEY (blank to skip): ');
       values.set('TAVILY_API_KEY', tavilyKey);
     } else if (!options.yes && options.tavilyKey === undefined) {
       values.set('TAVILY_API_KEY', '');
     }
 
-    if (!options.yes && options.redisUrl === undefined && options.redisToken === undefined && await askYesNo(rl, 'Enable Upstash Redis memory/job storage?', Boolean(values.get('UPSTASH_REDIS_REST_URL') && values.get('UPSTASH_REDIS_REST_TOKEN')))) {
+    if (!options.yes && options.redisUrl === undefined && options.redisToken === undefined && await askSection(
+      rl,
+      'Cloud memory and job storage',
+      'Upstash Redis makes memory, chat history, Composio sessions, and job records portable across hosted/server environments. Without it, ZilMate uses local files.',
+      'Enable Upstash Redis memory/job storage?',
+      Boolean(values.get('UPSTASH_REDIS_REST_URL') && values.get('UPSTASH_REDIS_REST_TOKEN')),
+    )) {
       values.set('UPSTASH_REDIS_REST_URL', (await rl.question('UPSTASH_REDIS_REST_URL: ')).trim());
       values.set('UPSTASH_REDIS_REST_TOKEN', await askOptionalSecret(rl, 'UPSTASH_REDIS_REST_TOKEN: '));
     } else if (!options.yes && options.redisUrl === undefined && options.redisToken === undefined) {
@@ -224,18 +325,26 @@ export async function runSetup(options: SetupOptions = {}) {
     }
 
     if (!options.yes && options.jobsEnabled === undefined) {
-      console.log(chalk.cyan('\nBackground jobs'));
-      console.log(chalk.gray('Local jobs keep running after chat closes while `zilmate jobs worker` is open. They stop if the laptop sleeps or shuts down.'));
-      const enableJobs = await askYesNo(rl, 'Enable local background jobs and schedules?', values.get('ZILMATE_JOBS_ENABLED') === 'true');
+      const enableJobs = await askSection(
+        rl,
+        'Background jobs',
+        'Local jobs keep running after chat closes while `zilmate jobs worker` is open. They stop if the laptop sleeps or shuts down.',
+        'Enable local background jobs and schedules?',
+        values.get('ZILMATE_JOBS_ENABLED') === 'true',
+      );
       values.set('ZILMATE_JOBS_ENABLED', enableJobs ? 'true' : 'false');
     } else if (!values.has('ZILMATE_JOBS_ENABLED')) {
       values.set('ZILMATE_JOBS_ENABLED', 'false');
     }
 
     if (!options.yes && options.qstashToken === undefined) {
-      console.log(chalk.cyan('\nHosted schedules'));
-      console.log(chalk.gray('Use QStash only when you have a hosted public webhook. This is what allows schedules to fire while your laptop is closed.'));
-      if (await askYesNo(rl, 'Enable Upstash QStash hosted schedules?', Boolean(values.get('UPSTASH_QSTASH_TOKEN')))) {
+      if (await askSection(
+        rl,
+        'Hosted schedules',
+        'Use QStash only when you have a hosted public webhook. This is what allows schedules to fire while your laptop is closed.',
+        'Enable Upstash QStash hosted schedules?',
+        Boolean(values.get('UPSTASH_QSTASH_TOKEN')),
+      )) {
         values.set('UPSTASH_QSTASH_TOKEN', await askOptionalSecret(rl, 'UPSTASH_QSTASH_TOKEN (blank to skip): '));
         values.set('ZILMATE_PUBLIC_JOB_WEBHOOK_URL', (await rl.question('ZILMATE_PUBLIC_JOB_WEBHOOK_URL (blank for local only): ')).trim());
         const existingSecret = values.get('ZILMATE_JOB_WEBHOOK_SECRET');
@@ -268,9 +377,13 @@ export async function runSetup(options: SetupOptions = {}) {
     }
 
     if (!options.yes && options.voiceEnabled === undefined) {
-      console.log(chalk.cyan('\nRealtime voice'));
-      console.log(chalk.gray('Voice mode uses Deepgram Agent API with Flux V2 for fast listening/end-of-turn and Aura-2 for spoken replies. It can be skipped.'));
-      const enableVoice = await askYesNo(rl, 'Enable realtime voice mode?', values.get('ZILMATE_VOICE_ENABLED') === 'true');
+      const enableVoice = await askSection(
+        rl,
+        'Realtime voice',
+        'Voice mode uses Deepgram Flux V2 for listening/end-of-turn, ZilMate manager/tools for thinking, and Aura-2 for spoken replies. It can be skipped.',
+        'Enable realtime voice mode?',
+        values.get('ZILMATE_VOICE_ENABLED') === 'true',
+      );
       values.set('ZILMATE_VOICE_ENABLED', enableVoice ? 'true' : 'false');
       if (enableVoice) {
         const deepgramKey = options.deepgramApiKey ?? await askOptionalSecret(rl, 'DEEPGRAM_API_KEY (blank to configure later): ');
@@ -289,11 +402,78 @@ export async function runSetup(options: SetupOptions = {}) {
         if (language) values.set('ZILMATE_VOICE_LANGUAGE', language);
         values.set('ZILMATE_VOICE_MODE', 'agent');
         values.set('ZILMATE_VOICE_BARGE_IN', 'true');
+        const currentInputDevice = values.get('ZILMATE_VOICE_INPUT_DEVICE') || '';
+        if (await askYesNo(rl, 'Set a terminal microphone input device?', Boolean(currentInputDevice))) {
+          const voiceInputDevice = (await rl.question(`ZILMATE_VOICE_INPUT_DEVICE${currentInputDevice ? ` (${currentInputDevice})` : ' (blank for default mic)'}: `)).trim();
+          values.set('ZILMATE_VOICE_INPUT_DEVICE', voiceInputDevice || currentInputDevice);
+        }
       } else {
         console.log(chalk.gray('Voice disabled. Run `zilmate voice setup` or `zilmate voice enable` when you want it.'));
       }
     } else if (!values.has('ZILMATE_VOICE_ENABLED')) {
       values.set('ZILMATE_VOICE_ENABLED', 'false');
+    }
+
+    if (!values.get('ZILMATE_SCREENSHOT_MODEL')) values.set('ZILMATE_SCREENSHOT_MODEL', defaults.ZILMATE_SCREENSHOT_MODEL);
+    if (!values.has('ZILMATE_CAMERA_DEVICE')) values.set('ZILMATE_CAMERA_DEVICE', '');
+    if (!values.has('ZILMATE_FILE_ROOTS')) values.set('ZILMATE_FILE_ROOTS', '');
+
+    if (!options.yes && options.fileRoots === undefined) {
+      if (await askSection(
+        rl,
+        'Local file tools',
+        'File tools let ZilMate search, read, summarize, create, move, copy, and rename files inside approved roots. Writes still ask for approval.',
+        'Configure extra file access roots?',
+        Boolean(values.get('ZILMATE_FILE_ROOTS')),
+      )) {
+        const currentRoots = values.get('ZILMATE_FILE_ROOTS') || '';
+        const roots = (await rl.question(`ZILMATE_FILE_ROOTS comma-separated${currentRoots ? ` (${currentRoots})` : ' (blank for current folder only)'}: `)).trim();
+        values.set('ZILMATE_FILE_ROOTS', roots || currentRoots);
+      }
+    }
+
+    if (!options.yes && options.screenshotModel === undefined) {
+      if (await askSection(
+        rl,
+        'Screen and photo understanding',
+        'ZilMate uses a vision model to describe screenshots and camera photos. The default is Gemini 3.1 Flash Lite through the AI Gateway.',
+        'Use the default screenshot/photo vision model?',
+        true,
+      )) {
+        values.set('ZILMATE_SCREENSHOT_MODEL', values.get('ZILMATE_SCREENSHOT_MODEL') || defaults.ZILMATE_SCREENSHOT_MODEL);
+      } else {
+        const model = (await rl.question(`ZILMATE_SCREENSHOT_MODEL (${values.get('ZILMATE_SCREENSHOT_MODEL') || defaults.ZILMATE_SCREENSHOT_MODEL}): `)).trim();
+        values.set('ZILMATE_SCREENSHOT_MODEL', model || values.get('ZILMATE_SCREENSHOT_MODEL') || defaults.ZILMATE_SCREENSHOT_MODEL);
+      }
+    }
+
+    const installCameraDeps = options.installCameraDeps === undefined ? undefined : normalizeBooleanOption(options.installCameraDeps);
+    if (!options.yes && installCameraDeps === undefined) {
+      console.log(chalk.cyan('\nDesktop camera'));
+      console.log(chalk.gray('Screenshots and clipboard use built-in OS tools. Camera capture needs ffmpeg so ZilMate can grab a still photo reliably.'));
+      const hasFfmpeg = await commandExists('ffmpeg');
+      if (hasFfmpeg) {
+        console.log(chalk.green('ffmpeg is already available.'));
+      } else if (await askYesNo(rl, 'ffmpeg is missing. Install camera dependency now?', false)) {
+        try {
+          const installed = await installCameraDependency();
+          console.log(installed ? chalk.green('ffmpeg is ready.') : chalk.yellow('ffmpeg was not detected after install. Run `zilmate camera doctor` after checking PATH.'));
+        } catch (error) {
+          console.log(chalk.yellow(error instanceof Error ? error.message : String(error)));
+          console.log(chalk.gray('Setup will continue. You can install ffmpeg later and run `zilmate camera doctor`.'));
+        }
+      }
+
+      const currentDevice = values.get('ZILMATE_CAMERA_DEVICE') || '';
+      if (await askYesNo(rl, 'Set a specific camera device now?', Boolean(currentDevice))) {
+        const cameraDevice = (await rl.question(`Camera device${currentDevice ? ` (${currentDevice})` : ' (blank for auto-detect)'}: `)).trim();
+        values.set('ZILMATE_CAMERA_DEVICE', cameraDevice || currentDevice);
+      }
+
+      const checks = await runCameraDoctor();
+      console.log(chalk.gray(`Camera check: ${checks.map((check) => `${check.name} ${check.status}`).join(', ')}`));
+    } else if (installCameraDeps) {
+      if (!(await commandExists('ffmpeg'))) await installCameraDependency();
     }
 
     await writeEnvValues(envPath, values);
@@ -307,6 +487,7 @@ export async function runSetup(options: SetupOptions = {}) {
       ['QStash', values.get('UPSTASH_QSTASH_TOKEN') && values.get('ZILMATE_PUBLIC_JOB_WEBHOOK_URL') ? 'configured' : 'local schedules only'],
       ['Trigger workflows', values.get('ZILMATE_TRIGGER_WORKFLOWS_ENABLED') === 'true' ? 'enabled' : 'disabled'],
       ['Voice', values.get('ZILMATE_VOICE_ENABLED') === 'true' ? values.get('DEEPGRAM_API_KEY') ? 'enabled' : 'enabled, missing Deepgram key' : 'disabled'],
+      ['Camera', await commandExists('ffmpeg') ? 'ready' : 'needs ffmpeg'],
     ]);
     console.log(chalk.gray('\nNext steps:'));
     console.log(chalk.gray('  zilmate ping'));
@@ -318,6 +499,7 @@ export async function runSetup(options: SetupOptions = {}) {
       console.log(chalk.gray('  zilmate apps status'));
     }
     console.log(chalk.gray('  zilmate voice doctor'));
+    console.log(chalk.gray('  zilmate camera doctor'));
   } finally {
     rl.close();
   }
