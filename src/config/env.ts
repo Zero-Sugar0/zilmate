@@ -50,6 +50,7 @@ export type Env = {
   imageGeminiModel: string;
   imageModel: string;
   screenshotVisionModel: string;
+  codingModel: string | undefined;
 };
 
 export const env: Env = {
@@ -84,9 +85,10 @@ export const env: Env = {
   postModel: process.env.ZILO_POST_MODEL || undefined,
   imageDefaultProvider: normalizeImageProvider(process.env.ZILO_IMAGE_DEFAULT_PROVIDER),
   imageOpenaiModel: process.env.ZILO_IMAGE_OPENAI_MODEL || 'openai/gpt-image-2',
-  imageGeminiModel: process.env.ZILO_IMAGE_GEMINI_MODEL || process.env.ZILO_IMAGE_MODEL || 'google/gemini-3-pro-image',
-  imageModel: process.env.ZILO_IMAGE_MODEL || 'google/gemini-3-pro-image',
+  imageGeminiModel: process.env.ZILO_IMAGE_GEMINI_MODEL || process.env.ZILO_IMAGE_MODEL || 'google/gemini-3.1-flash-image',
+  imageModel: process.env.ZILO_IMAGE_MODEL || 'google/gemini-3.1-flash-image',
   screenshotVisionModel: process.env.ZILMATE_SCREENSHOT_MODEL || 'google/gemini-3.1-flash-lite',
+  codingModel: process.env.ZILO_CODING_MODEL || undefined,
 };
 
 export function hasGatewayAuth() {

@@ -6,6 +6,11 @@ import { env, hasComposio, hasDeepgram, hasGatewayAuth, hasQStash, hasRedis } fr
 import { getModelAvailability, models } from '../config/models.js';
 import { getComposioStatus } from '../tools/composio.tool.js';
 import { memoryBackendName } from '../memory/redis.js';
+import { initWorkspace } from '../workspace/init.js';
+import { workspaceLayout } from '../workspace/paths.js';
+import { getLocalDataRoot } from '../memory/local-store.js';
+import { cloudflareTunnelDoctor } from './tunnel.js';
+import { skillsRegistryDoctor } from '../skills/registry.js';
 
 export type DoctorStatus = 'pass' | 'warn' | 'fail';
 
@@ -27,7 +32,8 @@ async function packageVersion() {
 }
 
 async function writableMemoryFolder() {
-  const folder = path.resolve('.zilo-manager');
+  await initWorkspace();
+  const folder = getLocalDataRoot();
   const probe = path.join(folder, `.doctor-${Date.now()}.tmp`);
   await mkdir(folder, { recursive: true });
   await writeFile(probe, 'ok', 'utf8');
@@ -148,6 +154,68 @@ export async function runDoctor(options: { live?: boolean; sessionId?: string } 
         ? `Deepgram voice configured: ${env.zilmateVoiceListenModel} -> ${env.zilmateVoiceTtsModel}`
         : 'Voice is enabled but DEEPGRAM_API_KEY is missing'
       : 'Realtime voice is disabled',
+  });
+
+  checks.push({
+    name: 'Workspace',
+    status: existsSync(workspaceLayout().root) ? 'pass' : 'warn',
+    detail: existsSync(workspaceLayout().root)
+      ? `ZilMate workspace at ${workspaceLayout().root}`
+      : 'Workspace missing; run zilmate setup or zilmate workspace init',
+  });
+
+  const tunnel = await cloudflareTunnelDoctor();
+  checks.push({
+    name: tunnel.name,
+    status: tunnel.ok ? 'pass' : 'warn',
+    detail: tunnel.detail,
+  });
+
+  checks.push({
+    name: 'Notebook',
+    status: existsSync(workspaceLayout().notebook) ? 'pass' : 'warn',
+    detail: existsSync(workspaceLayout().notebook)
+      ? `Agent notebook at ${workspaceLayout().notebook}`
+      : 'Run zilmate workspace-init to create notebook.md',
+  });
+
+  checks.push({
+    name: 'Documents',
+    status: 'pass',
+    detail: 'PDF + slide deck generation available (pdfkit, pptxgenjs)',
+  });
+
+  const skillsRegistry = await skillsRegistryDoctor();
+  checks.push({
+    name: skillsRegistry.name,
+    status: skillsRegistry.ok ? 'pass' : 'warn',
+    detail: skillsRegistry.detail,
+  });
+
+  checks.push({
+    name: 'Desktop notifications',
+    status: 'pass',
+    detail: process.platform === 'win32'
+      ? 'Windows toast via PowerShell'
+      : process.platform === 'darwin'
+        ? 'macOS notification via osascript'
+        : 'Linux notify-send / zenify fallback',
+  });
+
+  if (hasQStash()) {
+    checks.push({
+      name: 'QStash webhook',
+      status: 'pass',
+      detail: `Public URL configured. Run \`zilmate jobs listen --tunnel\` while laptop is on.`,
+    });
+  }
+
+  checks.push({
+    name: 'CLI UX',
+    status: process.stdin.isTTY ? 'pass' : 'warn',
+    detail: process.stdin.isTTY
+      ? 'Interactive prompts, spinner, and arrow/space selection available'
+      : 'Non-TTY mode — notifications and select menus may be limited',
   });
 
   try {

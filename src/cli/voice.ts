@@ -7,7 +7,7 @@ import { checkTerminalVoiceRuntime, listTerminalVoiceInputDevices, playTerminalS
 import type { ZilMateVoiceEvent } from '../voice/types.js';
 import { loadTurns, saveTurns, type ChatTurn } from '../memory/history.js';
 import { recall } from '../memory/long-term.js';
-import { createTerminalConfirmation } from './confirm.js';
+import { createVoiceConfirmation } from '../runtime/voice-confirm.js';
 
 function yesNo(value: boolean) {
   return value ? 'yes' : 'no';
@@ -139,10 +139,19 @@ export async function runTerminalVoiceLive(sessionId = 'default') {
 - Do not use markdown bullets, long menus, emojis, or internal debug details unless the user asks.
 - Do not mention specific product/domain names unless the user asked about them or they are necessary.
 - If the user asks what you were doing earlier, where you left off, or to continue, use the conversation-so-far block first, then memory/scratchpad, before saying you do not remember.
-- You may use your tools and subagents when useful, but keep the spoken answer concise.`, {
+- You may use your tools and subagents when useful, but keep the spoken answer concise.
+- When a tool needs permission, the user can say yes, no, or session — they do not need to type.`, {
         sessionId,
-        confirm: createTerminalConfirmation(),
-        ...(voiceDebugEnabled() ? { progress: voiceProgress } : {}),
+        confirm: createVoiceConfirmation(async (prompt) => {
+          await playTerminalSpeech(prompt, {
+            onEvent: (event) => {
+              if (event.type === 'status' && event.label === 'TTS audio flushed') {
+                console.log(chalk.gray('…'));
+              }
+            },
+          });
+        }),
+        ...(voiceDebugEnabled() ? { progress: voiceProgress } : { progress: printProgress }),
       });
       const cleaned = cleanSpokenText(reply);
       turns.push(

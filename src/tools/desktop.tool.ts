@@ -10,10 +10,11 @@ import { requireGatewayAuth } from '../config/env.js';
 import { requestConfirmation } from '../runtime/confirm.js';
 import { emitProgress } from '../runtime/progress.js';
 import { searchWeb } from './web-search.tool.js';
+import { getOutputDir } from '../workspace/output-paths.js';
 
 const execFileAsync = promisify(execFile);
-const screenshotDir = path.resolve('outputs', 'screenshots');
-const cameraDir = path.resolve('outputs', 'camera');
+const screenshotDir = getOutputDir('screenshots');
+const cameraDir = getOutputDir('camera');
 
 export type CameraDoctorCheck = {
   name: string;

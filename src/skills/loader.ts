@@ -2,6 +2,7 @@ import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
+import { workspaceLayout } from '../workspace/paths.js';
 
 export type SkillSummary = {
   id: string;
@@ -46,7 +47,9 @@ async function findSkillFiles(root: string, found: string[] = []) {
 }
 
 function skillRoots() {
+  const layout = workspaceLayout();
   const roots = [
+    layout.skills,
     path.resolve('.agents', 'skills'),
     path.resolve('plugins'),
     path.resolve('skills'),

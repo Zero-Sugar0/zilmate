@@ -7,6 +7,7 @@ export type ModelRegistry = {
   post: string;
   chat: string;
   research: string;
+  coding: string;
   imageDefaultProvider: ImageProvider;
   imageOpenai: string;
   imageGemini: string;
@@ -27,6 +28,7 @@ export const models: ModelRegistry = {
   post: env.postModel || cheapModelCandidates[0]!,
   chat: env.helpModel || env.managerModel,
   research: env.managerModel,
+  coding: env.codingModel || env.managerModel,
   imageDefaultProvider: env.imageDefaultProvider,
   imageOpenai: env.imageOpenaiModel,
   imageGemini: env.imageGeminiModel,

@@ -11,6 +11,8 @@ import { createAutomationPlannerAgent } from './automation-planner.agent.js';
 import { createPersonalAssistantAgent } from './personal-assistant.agent.js';
 import { createDeveloperHelperAgent } from './developer-helper.agent.js';
 import { createSecurityAgent } from './security.agent.js';
+import { createCodingAgent } from './coding.agent.js';
+import { createGoalManagerAgent } from './goal-manager.agent.js';
 import { limits } from '../safety/limits.js';
 import { emitProgress, type ProgressEvent, withProgressListener } from '../runtime/progress.js';
 import { type ConfirmationHandler, withConfirmationHandler } from '../runtime/confirm.js';
@@ -27,6 +29,17 @@ import { computerUseTools } from '../tools/computer-use.tool.js';
 import { shellTools } from '../tools/shell.tool.js';
 import { skillTools } from '../tools/skills.tool.js';
 import { personalContextTools } from '../tools/personal-context.tool.js';
+import { setupAssistantTools } from '../tools/setup-assistant.tool.js';
+import { workspaceTools } from '../tools/workspace.tool.js';
+import { notebookTools } from '../tools/notebook.tool.js';
+import { knowledgeTools } from '../tools/knowledge.tool.js';
+import { healTools } from '../tools/heal.tool.js';
+import { trustTools } from '../tools/trust.tool.js';
+import { updateTools } from '../tools/update.tool.js';
+import { notifyTools } from '../tools/notify.tool.js';
+import { documentTools } from '../tools/documents.tool.js';
+import { askTools } from '../tools/ask.tool.js';
+import { withAskHandler, type AskHandler } from '../runtime/ask.js';
 
 function agentInput(prompt: string, abortSignal?: AbortSignal) {
   return abortSignal ? { prompt, abortSignal } : { prompt };
@@ -43,6 +56,8 @@ function describeTool(name: string) {
     personalAssistant: 'Using personal assistant subagent',
     developerHelper: 'Using developer helper subagent',
     security: 'Using security subagent',
+    coding: 'Using coding subagent',
+    goalManager: 'Using goal manager subagent',
     readScratchpad: 'Reading scratchpad',
     appendScratchpad: 'Updating scratchpad',
     rememberMemory: 'Saving memory',
@@ -108,23 +123,45 @@ function describeTool(name: string) {
   return labels[name] || `Using ${name}`;
 }
 
-function subagentTool(name: string, description: string, run: (prompt: string, abortSignal?: AbortSignal) => Promise<string>) {
+function subagentTool(
+  name: string,
+  description: string,
+  run: (prompt: string, abortSignal?: AbortSignal) => Promise<string>,
+  options: { agent?: string; trackSteps?: boolean } = {},
+) {
   return tool({
     description,
     inputSchema: z.object({ prompt: z.string().min(3) }),
     execute: async ({ prompt }, { abortSignal }) => {
-      emitProgress({ type: 'tool:start', label: describeTool(name), detail: prompt });
+      const agent = options.agent || name;
+      if (options.trackSteps) {
+        emitProgress({ type: 'subagent:start', label: describeTool(name), detail: prompt, agent });
+      } else {
+        emitProgress({ type: 'tool:start', label: describeTool(name), detail: prompt });
+      }
       try {
         const result = await run(prompt, abortSignal);
-        emitProgress({ type: 'tool:end', label: `${describeTool(name)} finished` });
+        emitProgress(options.trackSteps
+          ? { type: 'subagent:end', label: `${describeTool(name)} finished`, agent }
+          : { type: 'tool:end', label: `${describeTool(name)} finished` });
         return result;
       } catch (error) {
-        emitProgress({ type: 'tool:error', label: `${describeTool(name)} failed`, detail: error instanceof Error ? error.message : String(error) });
+        emitProgress({
+          type: 'tool:error',
+          label: `${describeTool(name)} failed`,
+          detail: error instanceof Error ? error.message : String(error),
+          ...(options.trackSteps ? { agent } : {}),
+        });
         throw error;
       }
     },
     toModelOutput: ({ output }) => ({ type: 'text', value: String(output) }),
   });
+}
+
+function codingStepTools(step: unknown) {
+  const toolCalls = (step as { toolCalls?: Array<{ toolName?: string }> }).toolCalls || [];
+  return toolCalls.map((call) => call.toolName).filter((name): name is string => Boolean(name));
 }
 
 export async function createManagerAgent(runId: string = randomUUID(), options: { sessionId?: string } = {}) {
@@ -137,6 +174,8 @@ export async function createManagerAgent(runId: string = randomUUID(), options: 
   const personalAssistant = createPersonalAssistantAgent();
   const developerHelper = createDeveloperHelperAgent(runId);
   const security = createSecurityAgent(runId);
+  const coding = createCodingAgent(runId);
+  const goalManager = createGoalManagerAgent();
   const scratchpadTools = createScratchpadTools(runId);
   const composioTools = await createComposioTools(options.sessionId || 'default');
 
@@ -160,12 +199,22 @@ export async function createManagerAgent(runId: string = randomUUID(), options: 
       'Use shell tools to execute commands and Python scripts: executeCommand runs any shell/PowerShell command (node, python, npm, pnpm, yarn, pip, builds, tests, etc.), installDependencies auto-detects and installs packages, runPipeline chains commands with pipes (cmd1 | cmd2), getSystemInfo gets CPU/memory/OS details, listProcesses lists running apps, findInPath checks if a command exists. These tools make the agent truly powerful in the CLI—capable of running any automation, installing packages, running tests, and executing applications.',
       'Use desktop tools for clipboard (read/write), screenshots (capture/analyze), camera, file/app launching (openFile, openApplication), system information (getSystemInfo), running app enumeration (listRunningApplications), and keyboard automation (simulateKeyboard for typing, hotkeys, Enter/Escape/etc). Desktop tools enable full system automation and UI control.',
       'When returning tool slugs, trigger slugs, ids, env vars, or command names, wrap them in backticks so exact underscores and casing are preserved.',
-      'Use specialized subagents for focused chat, quick help, post copy, image assets, research, automation planning, personal-assistant planning, developer integration help, and security (OSINT investigations + penetration testing).',
+      'Use specialized subagents for focused chat, quick help, post copy, image assets, research, automation planning, personal-assistant planning, developer integration help, coding (git-aware patches and repo edits), and security (OSINT investigations + penetration testing).',
       'Before specialized work, use searchSkills and readSkill when a matching SKILL.md exists (like Claude Code skills). Follow loaded skill instructions for that task.',
-      'Use getPersonalContext and updatePersonalContext to learn and remember what is urgent for this user, their VIP contacts, active projects, and business workflows.',
+      'Know your workspace: ~/Downloads/ZilMate (or ZILMATE_WORKSPACE) holds notebook.md, notes.json, knowledge-graph.json, skills/, outputs/, logs/, and scratch/. Use workspace and notebook tools to persist learnings beyond scratchpad.',
+      'Use checkSetupStatus and launchSecureSetup when users skipped setup — never ask for or handle API keys in chat; they run `zilmate setup` privately. configureSafeSetting only for non-secret flags.',
+      'Use runHealPass after substantial sessions to capture what worked, fix missed personal context, and update the knowledge graph.',
+      'Use knowledge graph tools to model people, projects, and goals (e.g. owner → ZiloShift, Hubtel). Use goalManager to break goals into actionable steps.',
+      'Use trust tools to log destructive/outbound actions with undo-window tracking.',
+      'Use askUserQuestion when you need a user decision — CLI shows arrow/space selection.',
+      'Use sendNotification to alert the user on their PC when approval or attention is needed.',
+      'Use generatePdf and generateSlideDeck for reports and Kimi-style slide decks (workspace outputs/).',
+      'Use searchSkillsRegistry and installRegistrySkill for skills.sh / npx skills ecosystem.',
+      'Use checkForUpdate/selfUpdate when the user asks to update ZilMate.',
       'Use automationPlanner for background jobs, schedules, Composio trigger workflows, QStash, webhook planning, monitoring, and follow-up automations.',
       'Use personalAssistant for daily planning, reminders, briefings, prioritization, follow-ups, summaries, and memory-aware personal organization.',
       'Use developerHelper for SDK usage, Next.js routes, install issues, package publishing, Cloudflare tunnels, webhooks, QStash, Composio setup, and technical troubleshooting.',
+      'Use coding for repository work: git status/diff/log, structured patches, running tests/builds, and small focused code changes — not whole-file rewrites when a patch suffices.',
       'Use research for current web or documentation questions that need sources.',
       'Use long-term memory tools for stable preferences, durable project facts, and recurring context. Do not save secrets, API keys, tokens, passwords, or sensitive personal data to memory.',
       'When the user asks what you were doing earlier, where you left off, to continue, or to resume prior work, check long-term memory and the scratchpad before saying you do not remember. If no relevant memory exists, say that briefly and ask for one cue.',
@@ -209,6 +258,21 @@ export async function createManagerAgent(runId: string = randomUUID(), options: 
         const result = await security.generate(agentInput(prompt, abortSignal));
         return result.text;
       }),
+      coding: subagentTool('coding', 'Software engineering in a git repo: status/diff/log, unified patches, tests, commits. Use for code edits and debugging — not SDK/docs questions.', async (prompt, abortSignal) => {
+        const result = await coding.generate({
+          ...agentInput(prompt, abortSignal),
+          onStepFinish: (step) => {
+            for (const toolName of codingStepTools(step)) {
+              emitProgress({ type: 'subagent:step', label: toolName, agent: 'coding' });
+            }
+          },
+        });
+        return result.text;
+      }, { agent: 'coding', trackSteps: true }),
+      goalManager: subagentTool('goalManager', 'Break goals into actionable steps, timelines, dependencies, and optional scheduled follow-ups.', async (prompt, abortSignal) => {
+        const result = await goalManager.generate(agentInput(prompt, abortSignal));
+        return result.text;
+      }),
       ...ziloDocsTools,
       ...memoryTools,
       ...timeTools,
@@ -222,6 +286,16 @@ export async function createManagerAgent(runId: string = randomUUID(), options: 
       ...shellTools,
       ...skillTools,
       ...personalContextTools,
+      ...setupAssistantTools,
+      ...workspaceTools,
+      ...notebookTools,
+      ...knowledgeTools,
+      ...healTools,
+      ...trustTools,
+      ...updateTools,
+      ...notifyTools,
+      ...documentTools,
+      ...askTools,
     },
     stopWhen: stepCountIs(limits.managerSteps),
   });
@@ -232,9 +306,10 @@ function toolNamesFromStep(step: unknown) {
   return toolCalls.map((call) => call.toolName).filter((name): name is string => Boolean(name));
 }
 
-export async function runManager(prompt: string, options: { progress?: (event: ProgressEvent) => void; runId?: string; sessionId?: string; confirm?: ConfirmationHandler } = {}) {
+export async function runManager(prompt: string, options: { progress?: (event: ProgressEvent) => void; runId?: string; sessionId?: string; confirm?: ConfirmationHandler; ask?: AskHandler } = {}) {
   return withProgressListener(options.progress, async () => {
     return withConfirmationHandler(options.confirm, async () => {
+      return withAskHandler(options.ask, async () => {
       const runId = options.runId || randomUUID();
       emitProgress({ type: 'thinking', label: 'Thinking', detail: runId });
       const manager = await createManagerAgent(runId, options.sessionId ? { sessionId: options.sessionId } : {});
@@ -249,6 +324,7 @@ export async function runManager(prompt: string, options: { progress?: (event: P
       });
       emitProgress({ type: 'done', label: 'Response ready' });
       return result.text;
+      });
     });
   });
 }

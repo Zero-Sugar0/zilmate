@@ -8,6 +8,10 @@ import { stdin as input, stdout as output } from 'node:process';
 import chalk from 'chalk';
 import { printPanel, printZilMateBanner } from './format.js';
 import { runCameraDoctor } from '../tools/desktop.tool.js';
+import { initWorkspace } from '../workspace/init.js';
+import { workspaceLayout } from '../workspace/paths.js';
+import { startCloudflareQuickTunnel } from './tunnel.js';
+import { startJobWebhookServer } from '../jobs/webhook-server.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -188,6 +192,8 @@ function buildEnv(values: Map<string, string>) {
     ['ZILMATE_SCREENSHOT_MODEL', values.get('ZILMATE_SCREENSHOT_MODEL') || defaults.ZILMATE_SCREENSHOT_MODEL],
     ['ZILMATE_CAMERA_DEVICE', values.get('ZILMATE_CAMERA_DEVICE') || defaults.ZILMATE_CAMERA_DEVICE],
     ['ZILMATE_FILE_ROOTS', values.get('ZILMATE_FILE_ROOTS') || defaults.ZILMATE_FILE_ROOTS],
+    ['ZILMATE_WORKSPACE', values.get('ZILMATE_WORKSPACE') || ''],
+    ['ZILMATE_WEBHOOK_PORT', values.get('ZILMATE_WEBHOOK_PORT') || '8787'],
     ['ZILO_MANAGER_MODEL', values.get('ZILO_MANAGER_MODEL') || defaults.ZILO_MANAGER_MODEL],
     ['ZILO_HELP_MODEL', values.get('ZILO_HELP_MODEL') || defaults.ZILO_HELP_MODEL],
     ['ZILO_POST_MODEL', values.get('ZILO_POST_MODEL') || defaults.ZILO_POST_MODEL],
@@ -206,7 +212,7 @@ function printSetupPrep() {
     ['Apps/tools', 'Composio key if you want Gmail, Slack, GitHub, Notion, etc.'],
     ['Web research', 'Tavily key if you want live web research'],
     ['Memory/jobs', 'Upstash Redis keys if you want cloud-backed storage'],
-    ['Hosted schedules', 'QStash token and public webhook URL if needed'],
+    ['Hosted schedules', 'QStash token; optional Cloudflare tunnel for public webhook'],
     ['Voice', 'Deepgram key if you want realtime voice'],
     ['Camera', 'ffmpeg if you want laptop camera capture'],
   ]);
@@ -217,33 +223,85 @@ async function readEnvValues(envPath: string) {
   return existsSync(envPath) ? parseEnvFile(await readFile(envPath, 'utf8')) : new Map<string, string>();
 }
 
-async function writeEnvValues(envPath: string, values: Map<string, string>) {
-  for (const [key, value] of Object.entries(defaults)) {
-    if (!values.has(key)) values.set(key, value);
+async function writeEnvValues(envPath: string, values: Map<string, string>, options: { merge?: boolean; touchedKeys?: Set<string> } = {}) {
+  const disk = await readEnvValues(envPath);
+  const merged = new Map(disk);
+
+  if (options.merge) {
+    for (const [key, value] of values) {
+      const onDisk = merged.get(key);
+      const touched = options.touchedKeys?.has(key);
+      if (touched) {
+        if (value !== undefined) merged.set(key, value);
+      } else if (!onDisk || onDisk.trim() === '') {
+        merged.set(key, value);
+      }
+    }
+  } else {
+    for (const [key, value] of values) merged.set(key, value);
   }
-  await writeFile(envPath, buildEnv(values), 'utf8');
+
+  for (const [key, value] of Object.entries(defaults)) {
+    if (!merged.has(key) || merged.get(key)?.trim() === '') merged.set(key, value);
+  }
+
+  await writeFile(envPath, buildEnv(merged), 'utf8');
+}
+
+function envHasValue(values: Map<string, string>, key: string) {
+  const value = values.get(key);
+  return Boolean(value && value.trim() !== '');
+}
+
+async function maybeCreateCloudflareWebhook(rl: readline.Interface, values: Map<string, string>) {
+  const hasCloudflared = await commandExists('cloudflared');
+  if (!hasCloudflared) {
+    console.log(chalk.yellow('cloudflared not found. Install it to auto-create a public webhook URL, or enter ZILMATE_PUBLIC_JOB_WEBHOOK_URL manually.'));
+    return;
+  }
+  const createTunnel = await askYesNo(rl, 'Create a Cloudflare quick tunnel for the job webhook now? (requires cloudflared)', false);
+  if (!createTunnel) return;
+
+  const port = Number.parseInt(values.get('ZILMATE_WEBHOOK_PORT') || '8787', 10) || 8787;
+  console.log(chalk.gray(`Starting local webhook on port ${port} and Cloudflare tunnel...`));
+  const server = await startJobWebhookServer(port);
+  try {
+    const tunnel = await startCloudflareQuickTunnel(server.url);
+    const webhookUrl = `${tunnel.url.replace(/\/$/, '')}/jobs/webhook`;
+    values.set('ZILMATE_PUBLIC_JOB_WEBHOOK_URL', webhookUrl);
+    values.set('ZILMATE_WEBHOOK_PORT', String(port));
+    console.log(chalk.green(`Public webhook URL: ${webhookUrl}`));
+    console.log(chalk.yellow('Quick tunnels change when restarted. Run `zilmate jobs listen --tunnel` while your laptop is on to keep QStash reachable.'));
+  } finally {
+    await server.close();
+  }
 }
 
 export async function runSetup(options: SetupOptions = {}) {
   const envPath = options.path || '.env';
   const existing = await readEnvValues(envPath);
   const rl = readline.createInterface({ input, output });
+  const touchedKeys = new Set<string>();
+  const mergeMode = existing.size > 0 && !options.force;
 
   try {
     printZilMateBanner('Setup');
-    console.log(chalk.gray(`Writing local environment config to ${envPath}`));
-    console.log(chalk.gray('Only AI Gateway is required. Everything else can be skipped, enabled, disabled, or changed later.'));
+    console.log(chalk.gray(`Config file: ${envPath}`));
+    if (mergeMode) {
+      console.log(chalk.green('Merge mode: existing .env values are preserved. Only missing keys will be added.'));
+      console.log(chalk.gray('Use --force to reconfigure all sections, or answer yes when prompted to replace a specific key.'));
+    } else {
+      console.log(chalk.gray('Only AI Gateway is required. Everything else can be skipped, enabled, disabled, or changed later.'));
+    }
     if (!options.yes) printSetupPrep();
 
-    if (existing.size > 0 && !options.force && !options.yes) {
-      const overwrite = await askYesNo(rl, `${envPath} already exists. Update it?`, false);
-      if (!overwrite) {
-        console.log(chalk.yellow('Setup cancelled. Existing .env was left unchanged.'));
-        return;
-      }
-    }
-
     const values = new Map(existing);
+    const layout = await initWorkspace();
+    if (!values.get('ZILMATE_WORKSPACE')) {
+      values.set('ZILMATE_WORKSPACE', layout.root);
+      touchedKeys.add('ZILMATE_WORKSPACE');
+    }
+    console.log(chalk.gray(`ZilMate workspace: ${layout.root}`));
     if (options.aiGatewayKey) values.set('AI_GATEWAY_API_KEY', options.aiGatewayKey);
     if (options.composioKey !== undefined) values.set('COMPOSIO_API_KEY', options.composioKey);
     if (options.zilmateUserId !== undefined) values.set('ZILMATE_USER_ID', options.zilmateUserId);
@@ -274,10 +332,13 @@ export async function runSetup(options: SetupOptions = {}) {
     } else if (!currentGatewayKey && options.yes) {
       throw new Error('AI_GATEWAY_API_KEY is required. Pass --ai-gateway-key or run setup interactively.');
     } else if (currentGatewayKey && !options.yes) {
-      const replace = await askYesNo(rl, 'AI_GATEWAY_API_KEY already exists. Replace it?', false);
-      if (replace) values.set('AI_GATEWAY_API_KEY', await askRequiredSecret(rl, 'AI_GATEWAY_API_KEY: '));
+      if (!mergeMode || await askYesNo(rl, 'AI_GATEWAY_API_KEY already exists. Replace it?', false)) {
+        values.set('AI_GATEWAY_API_KEY', await askRequiredSecret(rl, 'AI_GATEWAY_API_KEY: '));
+        touchedKeys.add('AI_GATEWAY_API_KEY');
+      }
     } else if (!currentGatewayKey) {
       values.set('AI_GATEWAY_API_KEY', await askRequiredSecret(rl, 'AI_GATEWAY_API_KEY: '));
+      touchedKeys.add('AI_GATEWAY_API_KEY');
     }
 
     if (!values.get('ZILMATE_USER_ID')) {
@@ -346,7 +407,13 @@ export async function runSetup(options: SetupOptions = {}) {
         Boolean(values.get('UPSTASH_QSTASH_TOKEN')),
       )) {
         values.set('UPSTASH_QSTASH_TOKEN', await askOptionalSecret(rl, 'UPSTASH_QSTASH_TOKEN (blank to skip): '));
-        values.set('ZILMATE_PUBLIC_JOB_WEBHOOK_URL', (await rl.question('ZILMATE_PUBLIC_JOB_WEBHOOK_URL (blank for local only): ')).trim());
+        const existingWebhook = values.get('ZILMATE_PUBLIC_JOB_WEBHOOK_URL');
+        if (!existingWebhook) {
+          await maybeCreateCloudflareWebhook(rl, values);
+        }
+        if (!values.get('ZILMATE_PUBLIC_JOB_WEBHOOK_URL')) {
+          values.set('ZILMATE_PUBLIC_JOB_WEBHOOK_URL', (await rl.question('ZILMATE_PUBLIC_JOB_WEBHOOK_URL (blank for local only): ')).trim());
+        }
         const existingSecret = values.get('ZILMATE_JOB_WEBHOOK_SECRET');
         const secret = await askOptionalSecret(rl, `ZILMATE_JOB_WEBHOOK_SECRET (blank to ${existingSecret ? 'keep existing' : 'auto-generate'}): `);
         values.set('ZILMATE_JOB_WEBHOOK_SECRET', secret || existingSecret || newWebhookSecret());
@@ -476,7 +543,7 @@ export async function runSetup(options: SetupOptions = {}) {
       if (!(await commandExists('ffmpeg'))) await installCameraDependency();
     }
 
-    await writeEnvValues(envPath, values);
+    await writeEnvValues(envPath, values, { merge: mergeMode, touchedKeys });
     console.log(chalk.green(`Saved ${envPath}.`));
     printPanel('Setup summary', [
       ['Gateway', values.get('AI_GATEWAY_API_KEY') ? 'configured' : 'missing'],
@@ -485,6 +552,7 @@ export async function runSetup(options: SetupOptions = {}) {
       ['Redis', values.get('UPSTASH_REDIS_REST_URL') && values.get('UPSTASH_REDIS_REST_TOKEN') ? 'configured' : 'local fallback'],
       ['Jobs', values.get('ZILMATE_JOBS_ENABLED') === 'true' ? 'enabled' : 'disabled'],
       ['QStash', values.get('UPSTASH_QSTASH_TOKEN') && values.get('ZILMATE_PUBLIC_JOB_WEBHOOK_URL') ? 'configured' : 'local schedules only'],
+      ['Workspace', values.get('ZILMATE_WORKSPACE') || workspaceLayout().root],
       ['Trigger workflows', values.get('ZILMATE_TRIGGER_WORKFLOWS_ENABLED') === 'true' ? 'enabled' : 'disabled'],
       ['Voice', values.get('ZILMATE_VOICE_ENABLED') === 'true' ? values.get('DEEPGRAM_API_KEY') ? 'enabled' : 'enabled, missing Deepgram key' : 'disabled'],
       ['Camera', await commandExists('ffmpeg') ? 'ready' : 'needs ffmpeg'],
@@ -494,6 +562,9 @@ export async function runSetup(options: SetupOptions = {}) {
     console.log(chalk.gray('  zilmate doctor'));
     if (values.get('ZILMATE_JOBS_ENABLED') === 'true') {
       console.log(chalk.gray('  zilmate jobs worker'));
+      if (values.get('UPSTASH_QSTASH_TOKEN')) {
+        console.log(chalk.gray('  zilmate jobs listen --tunnel'));
+      }
     }
     if (values.get('COMPOSIO_API_KEY')) {
       console.log(chalk.gray('  zilmate apps status'));
@@ -551,7 +622,10 @@ export async function runVoiceSetup(options: Pick<SetupOptions, 'path' | 'force'
 
     if (!values.has('ZILMATE_VOICE_LANGUAGE_HINTS')) values.set('ZILMATE_VOICE_LANGUAGE_HINTS', '');
 
-    await writeEnvValues(envPath, values);
+    await writeEnvValues(envPath, values, {
+      merge: existsSync(envPath),
+      touchedKeys: new Set(['ZILMATE_VOICE_ENABLED', 'DEEPGRAM_API_KEY', 'ZILMATE_VOICE_LISTEN_MODEL', 'ZILMATE_VOICE_LISTEN_VERSION', 'ZILMATE_VOICE_TTS_MODEL', 'ZILMATE_VOICE_LANGUAGE', 'ZILMATE_VOICE_MODE', 'ZILMATE_VOICE_BARGE_IN']),
+    });
     console.log(chalk.green(`Saved voice settings to ${envPath}.`));
     printPanel('Voice summary', [
       ['Voice', 'enabled'],
@@ -580,7 +654,7 @@ export async function setVoiceEnabled(enabled: boolean, options: Pick<SetupOptio
     values.set('ZILMATE_VOICE_LANGUAGE', values.get('ZILMATE_VOICE_LANGUAGE') || 'en');
     values.set('ZILMATE_VOICE_BARGE_IN', values.get('ZILMATE_VOICE_BARGE_IN') || 'true');
   }
-  await writeEnvValues(envPath, values);
+  await writeEnvValues(envPath, values, { merge: existsSync(envPath) });
   printPanel('Voice', [
     ['Status', enabled ? 'enabled' : 'disabled'],
     ['Deepgram', values.get('DEEPGRAM_API_KEY') ? 'configured' : 'missing'],

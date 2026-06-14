@@ -1,9 +1,10 @@
 ﻿import { isConfirmationActive } from './confirm.js';
 
 export type ProgressEvent = {
-  type: 'thinking' | 'step' | 'tool:start' | 'tool:end' | 'tool:error' | 'search:start' | 'search:end' | 'fetch:start' | 'fetch:end' | 'done';
+  type: 'thinking' | 'step' | 'tool:start' | 'tool:end' | 'tool:error' | 'search:start' | 'search:end' | 'fetch:start' | 'fetch:end' | 'done' | 'subagent:start' | 'subagent:step' | 'subagent:end';
   label: string;
   detail?: string;
+  agent?: string;
 };
 
 let listener: ((event: ProgressEvent) => void) | undefined;

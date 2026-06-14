@@ -54,7 +54,7 @@ export function createSecurityAgent(runId = 'default') {
       // ── Workflow ──────────────────────────────────────────────────────────
       'Standard OSINT workflow: (1) check installed tools, (2) clarify target identifiers and desired depth, (3) run osintInvestigation or chain individual tools, (4) summarize findings with output file paths.',
       'Standard pentest workflow: (1) confirm authorization, (2) run checkPentestTools, (3) install missing tools if needed, (4) clarify scope and depth, (5) run runPentestChain or phase-by-phase tools, (6) summarize findings by severity with remediation hints.',
-      'All outputs are saved to outputs/osint/ or outputs/pentest/ subdirectories. Always tell the user the exact file paths of saved reports.',
+      'All outputs are saved under the ZilMate workspace outputs/osint/ or outputs/pentest/ folders. Always tell the user the exact file paths of saved reports.',
       'Use the scratchpad to track target identifiers, discovered subdomains, and findings across multi-step investigations.',
       'Use time tools when the user asks about scan timing, schedules, or CVE publication dates.',
 

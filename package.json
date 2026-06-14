@@ -1,6 +1,6 @@
 {
   "name": "zilmate",
-  "version": "1.4.0",
+  "version": "1.6.0",
   "description": "ZilMate CLI multi-agent assistant for ZiloShift workflows.",
   "type": "module",
   "main": "dist/server.js",
@@ -32,6 +32,7 @@
     "triggers": "tsx src/index.ts triggers",
     "test": "npm run build",
     "prepare": "npm run build",
+    "postinstall": "node scripts/postinstall.mjs",
     "pack:dry": "npm pack --dry-run",
     "prepublishOnly": "npm run build",
     "release:github": "node scripts/release-github.mjs",
@@ -60,12 +61,15 @@
     "dotenv": "^17.4.2",
     "marked": "^15.0.12",
     "marked-terminal": "^7.3.0",
+    "pdfkit": "^0.19.1",
+    "pptxgenjs": "^4.0.1",
     "tsx": "^4.22.4",
     "ws": "^8.21.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "^25.9.2",
+    "@types/pdfkit": "^0.17.6",
     "typescript": "^6.0.3"
   },
   "bin": {

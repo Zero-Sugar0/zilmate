@@ -7,7 +7,11 @@ import { requestConfirmation } from '../runtime/confirm.js';
 import { emitProgress } from '../runtime/progress.js';
 import { runCliTool } from './cli-runner.js';
 
-const osintOutputDir = path.resolve('outputs', 'osint');
+import { getOutputDir } from '../workspace/output-paths.js';
+
+function osintOutputDir() {
+  return getOutputDir('osint');
+}
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -24,7 +28,7 @@ async function confirmOsintAction(action: string, details: string[]) {
 }
 
 async function ensureOutputDir(subdir?: string): Promise<string> {
-  const dir = subdir ? path.join(osintOutputDir, subdir) : osintOutputDir;
+  const dir = subdir ? path.join(osintOutputDir(), subdir) : osintOutputDir();
   await mkdir(dir, { recursive: true });
   return dir;
 }
@@ -46,7 +50,7 @@ function runTool(command: string, args: string[], timeoutMs = 120_000): Promise<
 
 async function saveOutput(filename: string, content: string): Promise<string> {
   await ensureOutputDir();
-  const p = path.join(osintOutputDir, filename);
+  const p = path.join(osintOutputDir(), filename);
   await writeFile(p, content, 'utf8');
   return p;
 }

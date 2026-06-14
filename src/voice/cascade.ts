@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { requireDeepgram } from '../config/env.js';
 import { getVoiceConfig } from './deepgram.js';
+import { deliverVoiceUtterance, isWaitingForVoiceApproval } from '../runtime/voice-confirm.js';
 import type { ZilMateVoiceEvent } from './types.js';
 
 type LiveConnection = {
@@ -376,6 +377,11 @@ export async function startCascadedVoiceSession(options: CascadedVoiceSessionOpt
     const finalText = pendingTranscript;
     pendingTranscript = '';
     emit(options, { type: 'transcript', role: 'user', text: finalText, final: true, timestamp: now() });
+
+    if (isWaitingForVoiceApproval() && deliverVoiceUtterance(finalText)) {
+      return;
+    }
+
     answering = answering.then(async () => {
       const reply = await options.onUserTranscript(finalText);
       if (!reply || typeof reply !== 'string') return;

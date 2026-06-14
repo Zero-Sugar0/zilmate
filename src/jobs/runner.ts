@@ -4,6 +4,7 @@ import type { ProgressEvent } from '../runtime/progress.js';
 import { isRecurringSchedule, nextRunFromSchedule } from './schedule.js';
 import { appendJobLog, getJob, listJobs, saveJob, updateJobStatus } from './store.js';
 import type { RunJobOptions } from './types.js';
+import { assessJobAnomaly, recordJobFingerprint } from './anomaly.js';
 
 function now() {
   return new Date().toISOString();
@@ -37,6 +38,12 @@ export async function runJob(id: string, options: RunJobOptions = {}) {
     lastRunAt: startedAt,
   });
   await appendJobLog(job.id, 'info', `Running job attempt ${running.attempts}.`);
+
+  recordJobFingerprint(job);
+  const anomaly = await assessJobAnomaly(job);
+  if (!anomaly.normal) {
+    await appendJobLog(job.id, 'info', `Anomaly assessment: ${anomaly.reason}`, anomaly);
+  }
 
   try {
     const text = await runManager(job.task, {

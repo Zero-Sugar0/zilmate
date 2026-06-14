@@ -18,7 +18,10 @@ import { getComposioStatus } from './tools/composio.tool.js';
 import { getResolvedConfigSummary, runDoctor } from './cli/doctor.js';
 import { clearMemories, forget, listMemories, recall, remember } from './memory/long-term.js';
 import { createTrigger, listenToTriggers, listTriggers, listTriggerTypes, showTriggerType } from './cli/triggers.js';
-import { cancelCliJob, createCliJob, listCliJobs, runCliJob, showCliJob, showCliJobLogs, startCliJobWorker } from './cli/jobs.js';
+import { cancelCliJob, createCliJob, listCliJobs, runCliJob, showCliJob, showCliJobLogs, startCliJobListener, startCliJobWorker } from './cli/jobs.js';
+import { initWorkspace } from './workspace/init.js';
+import { workspaceLayout } from './workspace/paths.js';
+import { runHeal } from './memory/heal.js';
 import { printWelcomeScreen } from './cli/welcome.js';
 import { startDefaultLauncher, startMainMenu } from './cli/menu.js';
 import { printDoctorChecks } from './cli/health.js';
@@ -53,8 +56,8 @@ function friendlyError(error: unknown) {
 const program = new Command();
 program
   .name('zilmate')
-  .description('ZilMate CLI agent for ZiloShift workflows')
-  .version('1.4.0');
+  .description('ZilMate Agent')
+  .version('1.6.0');
 
 program
   .command('welcome')
@@ -469,12 +472,76 @@ jobs
   });
 
 jobs
+  .command('listen')
+  .option('-p, --port <number>', 'local webhook port', process.env.ZILMATE_WEBHOOK_PORT || '8787')
+  .option('--tunnel', 'also start a Cloudflare quick tunnel (requires cloudflared)')
+  .description('Run the QStash job webhook server (and optional Cloudflare tunnel)')
+  .action(async (options: { port?: string; tunnel?: boolean }) => {
+    try {
+      await startCliJobListener({
+        ...(options.port !== undefined ? { port: options.port } : {}),
+        tunnel: Boolean(options.tunnel),
+      });
+    } catch (error) {
+      printError(friendlyError(error));
+      process.exitCode = 1;
+    }
+  });
+
+jobs
   .command('cancel')
   .argument('<id>', 'job id')
   .description('Cancel one ZilMate job')
   .action(async (id: string) => {
     try {
       await cancelCliJob(id);
+    } catch (error) {
+      printError(friendlyError(error));
+      process.exitCode = 1;
+    }
+  });
+
+program
+  .command('workspace')
+  .description('ZilMate workspace (notebook, skills, outputs, logs)')
+  .action(async () => {
+    try {
+      const layout = workspaceLayout();
+      printJson({ root: layout.root, paths: layout });
+    } catch (error) {
+      printError(friendlyError(error));
+      process.exitCode = 1;
+    }
+  });
+
+program
+  .command('workspace-init')
+  .description('Create or repair the ZilMate workspace folder structure')
+  .action(async () => {
+    try {
+      const layout = await initWorkspace();
+      printJson({ ok: true, root: layout.root, paths: layout });
+    } catch (error) {
+      printError(friendlyError(error));
+      process.exitCode = 1;
+    }
+  });
+
+program
+  .command('heal')
+  .argument('[summary]', 'what happened this session')
+  .option('-s, --session <id>', 'session id to load chat turns from', 'default')
+  .option('--deep', 'run two-pass deep heal')
+  .description('Review recent work, save learnings, and update notebook/knowledge graph')
+  .action(async (summary: string | undefined, options: { session?: string; deep?: boolean }) => {
+    try {
+      requireGatewayAuth();
+      const result = await runHeal({
+        sessionSummary: summary?.trim() || 'Recent ZilMate session — capture durable learnings and any missed personal context.',
+        sessionId: options.session || 'default',
+        ...(options.deep ? { deep: true } : {}),
+      });
+      await printResult(result);
     } catch (error) {
       printError(friendlyError(error));
       process.exitCode = 1;
@@ -862,8 +929,10 @@ program
   });
 
 if (process.argv.length <= 2) {
+  await initWorkspace().catch(() => undefined);
   await startDefaultLauncher();
 } else {
+  await initWorkspace().catch(() => undefined);
   await program.parseAsync(process.argv).catch((error) => {
   printError(friendlyError(error));
   process.exitCode = 1;

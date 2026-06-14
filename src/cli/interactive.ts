@@ -7,8 +7,10 @@ import { loadTurns, saveTurns, type ChatTurn } from '../memory/history.js';
 import { recall } from '../memory/long-term.js';
 import { memoryBackendName } from '../memory/redis.js';
 import { clearSessionApprovals } from '../runtime/confirm.js';
+import { withAskHandler } from '../runtime/ask.js';
 import { printAssistant, printProgress, printStatus, printUserPrompt, printZilMateBanner } from './format.js';
 import { createReadlineConfirmation } from './confirm.js';
+import { createReadlineAskHandler } from './ask.js';
 import { checkVoiceRuntime, getVoiceConfig } from '../voice/deepgram.js';
 import { runTerminalVoiceLive } from './voice.js';
 
@@ -101,11 +103,13 @@ export async function startInteractiveChat(sessionId = 'default') {
         ? `Conversation so far:\n${context}\n\n${relevantMemory ? `Relevant long-term memory:\n${relevantMemory}\n\n` : ''}New user message:\n${message}\n\n${voiceInstruction}`
         : `${relevantMemory ? `Relevant long-term memory:\n${relevantMemory}\n\n` : ''}${message}\n\n${voiceInstruction}`;
 
-      const response = await runManager(prompt, {
-        progress: printProgress,
-        sessionId,
-        confirm: createReadlineConfirmation(rl),
-      });
+      const response = await withAskHandler(createReadlineAskHandler(rl), () =>
+        runManager(prompt, {
+          progress: printProgress,
+          sessionId,
+          confirm: createReadlineConfirmation(rl),
+        }),
+      );
       printAssistant(response);
 
       turns.push(

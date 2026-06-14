@@ -12,33 +12,33 @@ const title = `ZilMate ${tag}`;
 
 const notes = `# ${title}
 
-ZilMate ${tag} is the latest npm release for the CLI and server SDK.
+ZilMate ${tag} — workspace-first assistant with merge setup, documents, skills.sh, heal, and richer CLI UX.
 
 ## Install
 
 \`\`\`powershell
 npm install -g zilmate@${version}
 zilmate setup
-zilmate doctor
+zilmate doctor --live
 \`\`\`
 
 ## Highlights
 
-- Sequential permission prompts (one approval at a time) for OSINT, pentest, Composio, and orchestration tools.
-- Trigger orchestration with LLM routing, policy storage, and propose/apply workflow with user confirmation.
-- Personal context store (VIP contacts, projects, urgency rules) for smarter prioritization.
-- Agent skills discovery (SKILL.md) via listSkills, searchSkills, and readSkill tools.
-- Cross-platform CLI runner fixes for Windows OSINT/pentest tools (NUL stdin wrapper).
-- Pentest tool installer (nmap, nuclei, subfinder, httpx, ffuf, sqlmap).
-- Voice: Flux EOT tuning, nova-3 STT fallback, chunked Aura TTS with flush timing.
+- **Merge setup** — \`zilmate setup\` preserves existing \`.env\` values; only adds missing keys.
+- **ZilMate workspace** — \`~/Downloads/ZilMate\` with notebook, knowledge graph, skills, outputs, logs.
+- **PDF & slide decks** — \`generatePdf\` / \`generateSlideDeck\` tools (Kimi-style .pptx + reports).
+- **skills.sh ecosystem** — \`searchSkillsRegistry\` + \`installRegistrySkill\` via \`npx skills\`.
+- **Powerful heal** — two-pass session review: memory, contacts, projects, action items, friction log.
+- **Desktop notifications** — agent can toast the user when approval or attention is needed.
+- **CLI UX** — spinner while thinking, arrow/space selection for agent questions.
+- **QStash + Cloudflare** — optional tunnel during setup; \`zilmate jobs listen --tunnel\`.
 
 ## Quick Checks
 
 \`\`\`powershell
-zilmate --version
-zilmate menu
-zilmate jobs list
-zilmate memory
+zilmate workspace
+zilmate heal "session summary"
+zilmate jobs listen --tunnel
 \`\`\`
 
 ## npm

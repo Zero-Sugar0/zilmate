@@ -7,11 +7,12 @@ import { tool } from 'ai';
 import { z } from 'zod';
 import { requestConfirmation } from '../runtime/confirm.js';
 import { emitProgress } from '../runtime/progress.js';
+import { getOutputDir } from '../workspace/output-paths.js';
 
 const execFileAsync = promisify(execFile);
 const IS_WIN = process.platform === 'win32';
 const IS_MAC = process.platform === 'darwin';
-const outputDir = path.resolve('outputs', 'computer-use');
+const outputDir = getOutputDir('computer-use');
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

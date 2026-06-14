@@ -3,6 +3,7 @@ import path from 'node:path';
 import { generateImage, generateText, tool } from 'ai';
 import { z } from 'zod';
 import { models } from '../config/models.js';
+import { getOutputDir } from '../workspace/output-paths.js';
 import { requireGatewayAuth, type ImageProvider } from '../config/env.js';
 import { redactSensitiveText } from '../safety/redaction.js';
 import { emitProgress } from '../runtime/progress.js';
@@ -110,7 +111,7 @@ async function generateGeminiImage(prompt: string, outputDir: string): Promise<I
 
 export async function generateImageAsset(prompt: string, options: ImageGenerationOptions = {}): Promise<ImageGenerationResult> {
   requireGatewayAuth();
-  const outputDir = options.outputDir || path.resolve('outputs', 'images');
+  const outputDir = options.outputDir || getOutputDir('images');
   await mkdir(outputDir, { recursive: true });
   const provider = normalizeProvider(options.provider);
   if (provider === 'gemini') return generateGeminiImage(prompt, outputDir);

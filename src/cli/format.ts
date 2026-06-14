@@ -2,6 +2,7 @@
 import { marked } from 'marked';
 import type { Tokens } from 'marked';
 import type { ProgressEvent } from '../runtime/progress.js';
+import { createActivitySpinner, type ActivitySpinner } from './spinner.js';
 
 const maxWidth = () => Math.min(process.stdout.columns || 96, 110);
 const divider = (color = chalk.gray) => color('─'.repeat(Math.min(maxWidth(), 88)));
@@ -250,6 +251,41 @@ export function printThinking() {
 }
 
 export function printProgress(event: ProgressEvent) {
+  printProgressWithSpinner(event);
+}
+
+let activeSpinner: ActivitySpinner | undefined;
+
+export function createProgressPrinter() {
+  return (event: ProgressEvent) => printProgressWithSpinner(event);
+}
+
+function printProgressWithSpinner(event: ProgressEvent) {
+  if (event.type === 'thinking') {
+    if (!activeSpinner) activeSpinner = createActivitySpinner(event.label || 'Thinking');
+    else activeSpinner.update(event.label || 'Thinking', event.detail);
+    return;
+  }
+
+  if (event.type === 'done') {
+    activeSpinner?.stop('Ready');
+    activeSpinner = undefined;
+    console.log(chalk.green(`✓ ${event.label}`));
+    return;
+  }
+
+  if (activeSpinner) {
+    activeSpinner.stop();
+    activeSpinner = undefined;
+  }
+
+  if (event.type === 'subagent:start') {
+    console.log(chalk.magenta(`\n╭─ ${event.agent || 'subagent'} ─ ${event.label}`));
+    if (event.detail) console.log(chalk.gray(`│  ${clip(event.detail, maxWidth() - 6)}`));
+    console.log(chalk.magenta('╰─'));
+    return;
+  }
+
   const icons: Record<ProgressEvent['type'], string> = {
     thinking: '…',
     step: '→',
@@ -261,6 +297,9 @@ export function printProgress(event: ProgressEvent) {
     'fetch:start': '↓',
     'fetch:end': '✓',
     done: '✓',
+    'subagent:start': '◆',
+    'subagent:step': '│',
+    'subagent:end': '◆',
   };
   const colors: Record<ProgressEvent['type'], (value: string) => string> = {
     thinking: chalk.gray,
@@ -273,11 +312,16 @@ export function printProgress(event: ProgressEvent) {
     'fetch:start': chalk.blue,
     'fetch:end': chalk.green,
     done: chalk.green,
+    'subagent:start': chalk.bold.magenta,
+    'subagent:step': chalk.magenta,
+    'subagent:end': chalk.bold.green,
   };
+
   const icon = icons[event.type];
   const color = colors[event.type];
+  const prefix = event.agent && event.type.startsWith('subagent') ? chalk.magenta(`[${event.agent}] `) : '';
   const detail = event.detail ? chalk.gray(` — ${event.detail.length > 120 ? `${event.detail.slice(0, 117)}...` : event.detail}`) : '';
-  console.log(`${color(`${icon} ${event.label}`)}${detail}`);
+  console.log(`${prefix}${color(`${icon} ${event.label}`)}${detail}`);
 }
 
 export function printError(message: string) {
