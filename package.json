@@ -49,8 +49,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@composio/core": "^0.10.0",
-    "@composio/vercel": "^0.9.2",
+    "@composio/core": "^0.11.0",
+    "@composio/vercel": "^0.9.3",
     "@deepgram/sdk": "^4.11.2",
     "@tavily/core": "^0.7.5",
     "@upstash/redis": "^1.38.0",
@@ -96,5 +96,8 @@
   "homepage": "https://github.com/zester4/zilo-manager#readme",
   "engines": {
     "node": ">=20.0.0"
+  },
+  "allowScripts": {
+    "esbuild@0.28.1": true
   }
 }
