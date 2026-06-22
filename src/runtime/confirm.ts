@@ -20,6 +20,10 @@ function approvalKey(request: ConfirmationRequest): string {
   return `${request.toolkitSlug}/${request.toolSlug}/${action}`;
 }
 
+function toolkitApprovalKey(request: ConfirmationRequest): string {
+  return `toolkit:${request.toolkitSlug}`;
+}
+
 function enqueueConfirmation<T>(run: () => Promise<T>): Promise<T> {
   const next = confirmationTail.then(run);
   confirmationTail = next.catch(() => undefined);
@@ -50,8 +54,9 @@ export async function withConfirmationHandler<T>(handler: ConfirmationHandler | 
 
 export async function requestConfirmation(request: ConfirmationRequest) {
   const key = approvalKey(request);
+  const toolkitKey = toolkitApprovalKey(request);
 
-  if (sessionApprovals.has(key)) {
+  if (sessionApprovals.has(key) || sessionApprovals.has(toolkitKey)) {
     return true;
   }
 
@@ -69,7 +74,12 @@ export async function requestConfirmation(request: ConfirmationRequest) {
       const result = await currentHandler(request);
 
       if (result === 'session') {
-        sessionApprovals.add(key);
+        // If the user approves for the whole toolkit or just this action
+        if (request.toolkitSlug && request.toolkitSlug !== 'local') {
+          sessionApprovals.add(toolkitKey);
+        } else {
+          sessionApprovals.add(key);
+        }
         return true;
       }
 
