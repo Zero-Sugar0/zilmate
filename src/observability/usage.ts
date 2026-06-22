@@ -1,4 +1,5 @@
 ﻿import { type ProgressEvent, emitProgress } from '../runtime/progress.js';
+import type { LanguageModelUsage } from 'ai';
 
 export type SessionMetrics = {
   tokens: {
@@ -15,16 +16,16 @@ const sessionStore = new Map<string, SessionMetrics>();
 // Roughly estimated costs per 1k tokens (blended average for common models)
 const COST_PER_1K_TOKENS = 0.002;
 
-export function trackUsage(sessionId: string, usage: any) {
+export function trackUsage(sessionId: string, usage: LanguageModelUsage) {
   const current = sessionStore.get(sessionId) || {
     tokens: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
     estimatedCost: 0,
     requestCount: 0,
   };
 
-  const prompt = usage.promptTokens || 0;
-  const completion = usage.completionTokens || 0;
-  const total = usage.totalTokens || (prompt + completion);
+  const prompt = usage.inputTokens ?? 0;
+  const completion = usage.outputTokens ?? 0;
+  const total = usage.totalTokens ?? (prompt + completion);
 
   current.tokens.promptTokens += prompt;
   current.tokens.completionTokens += completion;
