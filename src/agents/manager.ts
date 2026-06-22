@@ -173,6 +173,9 @@ function codingStepTools(step: unknown) {
   return toolCalls.map((call) => call.toolName).filter((name): name is string => Boolean(name));
 }
 
+import { browserTools } from '../tools/browser.tool.js';
+import { imageIntelligenceTools } from '../tools/image-intelligence.tool.js';
+
 function buildManagerInstructions() {
   const builder = new SystemPromptBuilder();
 
@@ -221,6 +224,7 @@ function buildManagerInstructions() {
       'Use file-system tools for local file search, reading, writing, folder creation, moving/copying/renaming, document summaries, folder change checks, duplicate/large file audits, and file metadata. File operations are free and unrestricted. Use deleteFile and deleteFolder to remove files (requires confirm=true for safety).',
       'Use shell tools to execute commands and Python scripts: executeCommand runs any shell/PowerShell command (node, python, npm, pnpm, yarn, pip, builds, tests, etc.), installDependencies auto-detects and installs packages, runPipeline chains commands with pipes (cmd1 | cmd2), getSystemInfo gets CPU/memory/OS details, listProcesses lists running apps, findInPath checks if a command exists. These tools make the agent truly powerful in the CLI—capable of running any automation, installing packages, running tests, and executing applications.',
       'Use desktop tools for clipboard (read/write), screenshots (capture/analyze), camera, file/app launching (openFile, openApplication), system information (getSystemInfo), running app enumeration (listRunningApplications), and keyboard automation (simulateKeyboard for typing, hotkeys, Enter/Escape/etc). Desktop tools enable full system automation and UI control.',
+      'Use browser tools (browserNavigate, browserClick, browserType, browserExtractContent, browserTakeScreenshot) for production-grade web automation. Understand page state and complete multi-step workflows autonomously.',
       'Use generatePdf and generateSlideDeck for reports and Kimi-style slide decks (workspace outputs/).',
     ].join('\n'),
   });
@@ -234,6 +238,7 @@ function buildManagerInstructions() {
       'Use developerHelper for SDK usage, Next.js routes, install issues, package publishing, Cloudflare tunnels, webhooks, QStash, Composio setup, and technical troubleshooting.',
       'Use coding for repository work: git status/diff/log, structured patches, running tests/builds, and small focused code changes — not whole-file rewrites when a patch suffices.',
       'Use research for current web or documentation questions that need sources.',
+      'Use imageIntelligence tools for professional-grade background removal (removeBackground) and transparent PNG generation.',
       'Composio trigger workflows can chain jobs automatically: classify priority/route, queue a primary job, and spawn follow-up schedules such as deadline reminders or no-reply nudges. Use automationPlanner when users want custom trigger chains beyond the default orchestration.',
     ].join('\n'),
   });
@@ -353,6 +358,8 @@ export async function createManagerAgent(runId: string = randomUUID(), options: 
       ...askTools,
       ...situationalAwarenessTools,
       ...sessionContinuityTools,
+      ...browserTools,
+      ...imageIntelligenceTools,
     },
     stopWhen: stepCountIs(limits.managerSteps),
   });
