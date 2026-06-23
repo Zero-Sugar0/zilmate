@@ -372,7 +372,9 @@ function printProgressWithSpinner(event: ProgressEvent) {
     const color = deptName === 'Strategy' ? chalk.hex('#0EA5E9') :
                   deptName === 'Engineering' ? chalk.hex('#F43F5E') :
                   deptName === 'Growth' ? chalk.hex('#10B981') :
+                  deptName === 'Revenue' ? chalk.hex('#EC4899') :
                   deptName === 'Operations' ? chalk.hex('#F59E0B') :
+                  deptName === 'Security' ? chalk.hex('#14B8A6') :
                   deptName === 'Data' ? chalk.hex('#8B5CF6') : chalk.magenta;
 
     console.log(color(`\n╭─ ${event.agent || 'subagent'} ─ ${event.label}`));
