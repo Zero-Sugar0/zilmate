@@ -34,6 +34,34 @@ export function termWidth(max = 100) {
   return Math.min(process.stdout.columns || 80, max);
 }
 
+/**
+ * Wraps text to a specific width, preserving paragraphs.
+ */
+export function wrapText(text: string, width: number): string[] {
+  const result: string[] = [];
+  const paragraphs = text.split('\n');
+  for (const paragraph of paragraphs) {
+    if (!paragraph.trim()) {
+      result.push('');
+      continue;
+    }
+    const words = paragraph.split(/\s+/);
+    let currentLine = '';
+    for (const word of words) {
+      if (!currentLine) {
+        currentLine = word;
+      } else if ((currentLine + ' ' + word).length <= width) {
+        currentLine += ' ' + word;
+      } else {
+        result.push(currentLine.padEnd(width));
+        currentLine = word;
+      }
+    }
+    if (currentLine) result.push(currentLine.padEnd(width));
+  }
+  return result;
+}
+
 export function boxLine(char: 'top' | 'mid' | 'bot', width: number) {
   const inner = Math.max(20, width - 2);
   if (char === 'top') return theme.accent(`╭${'─'.repeat(inner)}╮`);

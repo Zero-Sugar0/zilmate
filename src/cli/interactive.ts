@@ -73,11 +73,13 @@ export async function startInteractiveChat(sessionId = 'default') {
         console.log(theme.textBright('Commands'));
         console.log(`  ${theme.brand('/exit')}        Quit`);
         console.log(`  ${theme.brand('/clear')}       Clear session history`);
+        console.log(`  ${theme.brand('/paste')}       Enter multiline mode (paste text)`);
         console.log(`  ${theme.brand('/swarm')}       Launch Digital Corporation task`);
         console.log(`  ${theme.brand('/voice')}       Start live voice mode`);
         console.log(`  ${theme.brand('/model')}       Browse AI Gateway models`);
         console.log(`  ${theme.brand('/model pick')}  Choose manager/coding/image models`);
         console.log(`  ${theme.brand('/model next')}  Next model page`);
+        console.log(theme.muted('Tip: Use "\\" at the end of a line for simple multiline input.'));
         continue;
       }
       if (message === '/swarm' || message.startsWith('/swarm ')) {
