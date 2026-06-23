@@ -1,7 +1,14 @@
-# Digital Corporation Swarm Plan (v2.0)
+# Digital Corporation Swarm Plan (v3.0)
 
 ## Overview
 This document outlines the hierarchical multi-agent architecture for ZilMate's "Digital Corporation" swarm. The swarm consists of 7 specialized departments and 30 high-fidelity agents.
+
+## Architectural Pillar: Context Isolation & Hierarchical Memory
+To prevent "Context Saturation" and "Memory Competition," the swarm uses a tiered isolation model:
+
+1.  **Departmental Isolation:** Every department operates in its own isolated memory namespace (e.g., `default:engineering`, `default:security`). Specialists can only see their department's scratchpad and local knowledge.
+2.  **Corporate Synthesis Gatekeeper:** The COO (Main Agent) manages the "Global Corporate Notebook" (`default`). The COO fetches critical context from departmental namespaces and promotes summarized findings to the global layer.
+3.  **Cross-Departmental Handoffs:** If Engineering needs data from Growth, the COO orchestrates the data retrieval and handoff, ensuring agents only receive the *relevant* subset of information.
 
 ## Departmental Hierarchy
 
@@ -52,7 +59,7 @@ This document outlines the hierarchical multi-agent architecture for ZilMate's "
 
 ## Swarm Workflow
 1.  **CEO** receives business objective.
-2.  **COO** (Digital Corporation Main) classifies task and delegates to the relevant **Department**.
-3.  **Specialist Agents** use Composio toolsets to interact with real-world SaaS apps.
-4.  **Specialists** update status via `.md` reports in `swarm-reports/`.
-5.  **COO** synthesizes departmental progress into a corporate health summary.
+2.  **COO** classifies task and delegates to the relevant **Departmental Namespace**.
+3.  **Specialist Agents** use namespaced memory and Composio toolsets to execute.
+4.  **Specialists** update status via `.md` reports.
+5.  **COO** synthesizes departmental progress and updates the **Global Corporate Notebook**.

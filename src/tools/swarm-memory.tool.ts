@@ -5,25 +5,27 @@ import { emitProgress } from '../runtime/progress.js';
 
 export const swarmMemoryTools = {
   getSharedScratchpad: tool({
-    description: 'Read the shared swarm scratchpad for short-lived, transient cross-agent context (e.g. current build error or temporary plan).',
+    description: 'Read the shared swarm scratchpad for transient context. If you are a specialist, this is your departmental scratchpad. If you are the COO, you can access any departmental scratchpad by specifying sessionId (e.g. "default:engineering").',
     inputSchema: z.object({
-      sessionId: z.string().optional().default('default'),
+      sessionId: z.string().optional().describe('The session or department scope (e.g., "default", "default:engineering"). Defaults to your current scope.'),
     }),
     execute: async ({ sessionId }) => {
-      const content = await readScratchpad(sessionId);
-      return { content };
+      const id = sessionId || 'default';
+      const content = await readScratchpad(id);
+      return { scope: id, content };
     },
   }),
   appendSharedScratchpad: tool({
-    description: 'Append to the shared swarm scratchpad. Use to communicate transient state to other agents in the immediate swarm loop.',
+    description: 'Append to the shared swarm scratchpad. Use to communicate transient state to other agents in your immediate department or swarm loop.',
     inputSchema: z.object({
       content: z.string().describe('The content to append to the scratchpad.'),
-      sessionId: z.string().optional().default('default'),
+      sessionId: z.string().optional().describe('The session or department scope. Defaults to your current scope.'),
     }),
     execute: async ({ content, sessionId }) => {
-      emitProgress({ type: 'step', label: 'Updating shared scratchpad' });
-      await appendScratchpad(sessionId, content);
-      return { status: 'Scratchpad updated' };
+      const id = sessionId || 'default';
+      emitProgress({ type: 'step', label: `Updating scratchpad [${id}]` });
+      await appendScratchpad(id, content);
+      return { status: 'Scratchpad updated', scope: id };
     },
   }),
 };
