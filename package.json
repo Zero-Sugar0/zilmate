@@ -52,6 +52,7 @@
     "@composio/core": "^0.11.0",
     "@composio/vercel": "^0.9.3",
     "@deepgram/sdk": "^4.11.2",
+    "@mendable/firecrawl-js": "^4.28.2",
     "@tavily/core": "^0.7.5",
     "@upstash/redis": "^1.38.0",
     "ai": "^6.0.198",
@@ -63,9 +64,11 @@
     "marked": "^15.0.12",
     "marked-terminal": "^7.3.0",
     "pdfkit": "^0.19.1",
+    "playwright": "^1.61.0",
     "pptxgenjs": "^4.0.1",
     "tsx": "^4.22.4",
     "ws": "^8.21.0",
+    "yahoo-finance2": "^3.15.3",
     "zod": "^4.4.3"
   },
   "devDependencies": {

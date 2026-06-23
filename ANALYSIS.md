@@ -360,6 +360,44 @@ ZilMate evolves from a tool you "run" to a partner that "works."
 *   **Self-Improving Agent Logic:** ZilMate automatically generates "Agent Evals" based on successful human interventions, effectively "training" its own future iterations to be more accurate.
 *   **Enterprise Compliance-by-Default:** Every action taken by the agent is logged into an immutable, cryptographic audit trail, satisfying SOC2, HIPAA, and GDPR requirements out of the box.
 
+### The "Super Agent" Blueprint
+
+#### 10 Essential Tools
+1.  **Vector RAG:** Semantic document retrieval (LanceDB/Orama).
+2.  **Structured Generator:** Schema-validated object creation (`generateObject`).
+3.  **Sandboxed Shell:** Docker-isolated command execution.
+4.  **Browser Agent:** Playwright-based web navigation for legacy apps.
+5.  **Multi-Modal Reasoning:** Multi-screenshot/image cross-analysis.
+6.  **Graph Interface:** Knowledge graph (entities/relationships) updates.
+7.  **Dynamic Skill Loader:** On-demand toolkit installation from remote registries.
+8.  **Handoff Summarizer:** Compact state persistence for session continuity.
+9.  **Proactive Monitor:** Background log/webhook watchers with interrupts.
+10. **Cost Auditor:** Self-monitoring token/USD budget management.
+
+#### Essential specialist subagents
+1.  **Architect Agent:** High-level planning and reasoning (o1/o4-mini).
+2.  **Coding Agent:** Surgical code implementation and patches.
+3.  **QA Agent:** Build verification, debugging, and test coverage.
+4.  **Security Agent:** OSINT, reconnaissance, and pentesting.
+5.  **Strategy Agent:** Business metrics, product positioning, and outreach.
+6.  **Support Agent:** Product-specific troubleshooting and macros.
+7.  **Automation Planner:** Workflow chaining and job scheduling.
+8.  **Memory Curator:** Periodic long-term memory pruning and consolidation.
+9.  **Compliance Agent:** CVE scanning, licensing, and SOC2 reporting.
+10. **Data Agent:** Python-based analysis and visualization of structured data.
+
+#### 10 Super-Agent Features
+1.  **Toolkit RBAC:** Granular role-based tool permissions.
+2.  **Context Compression:** Intelligent conversation summarization.
+3.  **Shadow Execution:** Non-destructive background task processing.
+4.  **Shared Multi-User Memory:** Cross-instance Redis intelligence.
+5.  **Mobile Push Approvals:** Remote approval of destructive actions.
+6.  **Agentic Undo Window:** Time-buffered revert capabilities.
+7.  **Dynamic Instruction Injection:** Minimal prompts based on active tools.
+8.  **Visual Trace UI:** Web-based thought graph and execution monitoring.
+9.  **Local Fallback:** Offline operation via Ollama/Local models.
+10. **Autonomous Evals:** Self-generated verification suites.
+
 ---
 
 ## Phase 9: Prioritized Roadmap
