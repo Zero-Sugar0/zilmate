@@ -1,4 +1,4 @@
-﻿import { SwarmAgent, type SwarmAgentConfig } from '../../runtime/swarm.js';
+import { SwarmAgent, type SwarmAgentConfig } from '../../runtime/swarm.js';
 import { browserTools } from '../../tools/browser.tool.js';
 import { financeTools } from '../../tools/finance.tool.js';
 import { webIntelligenceTools } from '../../tools/web-intelligence.tool.js';
