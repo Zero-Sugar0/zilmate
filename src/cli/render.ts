@@ -46,7 +46,10 @@ export function printUserTurn(message: string) {
   const lines = wrapText(message, innerWidth);
 
   // Filter out excessive empty lines that might come from pasting
-  const displayLines = lines.filter((line, i) => line.trim() || (i > 0 && lines[i-1].trim()));
+  const displayLines = lines.filter((line, i) => {
+    const prev = lines[i - 1];
+    return line.trim() || (i > 0 && prev !== undefined && prev.trim());
+  });
 
   console.log('');
   console.log(boxLine('top', w));

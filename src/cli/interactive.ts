@@ -49,7 +49,7 @@ export async function startInteractiveChat(sessionId = 'default') {
     history = (await readFile(historyFile, 'utf8')).split('\n').filter(Boolean).slice(-100);
   }
 
-  const completer = (line: string) => {
+  const completer = (line: string): [string[], string] => {
     const completions = ['/exit', '/quit', '/clear', '/help', '/voice', '/swarm', '/model', '/model pick', '/model next', '/heal'];
     const hits = completions.filter((c) => c.startsWith(line));
     return [hits.length ? hits : completions, line];

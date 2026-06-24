@@ -55,8 +55,11 @@ export async function readComposerLine(
   }
 
   for (let i = 0; i < lines.length; i++) {
-    const wrapped = wrapText(lines[i], w - promptLen);
-    linesUsed += Math.max(1, wrapped.length);
+    const line = lines[i];
+    if (line !== undefined) {
+      const wrapped = wrapText(line, w - promptLen);
+      linesUsed += Math.max(1, wrapped.length);
+    }
   }
 
   if (multilineMode) {
