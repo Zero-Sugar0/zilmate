@@ -87,3 +87,63 @@ This report provides a deep-dive technical assessment of the **ZilMate** codebas
 
 ## Final Verdict
 ZilMate is a high-fidelity "Digital Corporation" framework. Its greatest strength is the **Heal Engine** and **hierarchical delegation**. Its primary weakness is the **local storage concurrency** and **lack of vector-based memory**. Addressing the storage race conditions should be the immediate priority before scaling the swarm further.
+
+---
+
+# CLI Design & UI/UX Audit
+
+This section evaluates the visual and interactive design of the ZilMate CLI. While functional and clean, the current design lacks the "High-Fidelity" experience expected of a premium business orchestration tool.
+
+## 1. What's Lacking?
+
+### Static Scrolling Buffer
+- **Issue:** The CLI currently prints every step to a scrolling buffer. For complex swarm tasks, important state (like "What is the Coder doing?") quickly scrolls off-screen.
+- **Impact:** High cognitive load for the "Technical Operator" to keep track of concurrent subagent status.
+
+### Monolithic Tool Feedback
+- **Issue:** Tool execution is shown as a simple bullet point (●) with a label.
+- **Lacking:** Rich progress indicators (e.g., progress bars for file downloads or dependency installs) and health metrics (e.g., current token cost per tool call).
+
+### Generic Agent "Personas"
+- **Issue:** While departments have colors, individual agents (like the Pentester or the SEO Expert) don't have distinct visual "branding."
+- **Lacking:** Iconography, unique avatars (ASCII), or specific TUI themes that make subagent transitions feel "surgical" and intentional.
+
+### Hidden "Thought Stream" Navigation
+- **Issue:** LLM reasoning is either printed in full (cluttering the UI) or hidden entirely (leaving the user in the dark).
+- **Lacking:** Collapsible or "foldable" TUI sections where the user can click/press a key to expand the agent's internal reasoning.
+
+---
+
+## 2. Recommended Design Improvements
+
+### The "Swarm Dashboard" TUI
+- **Improvement:** Implement a persistent dashboard layout (using a library like `ink` or `blessed-contrib`).
+- **Features:**
+  - **The Grid:** A split-screen view showing the global task on the left and live subagent activity on the right.
+  - **Health Metrics:** A real-time footer with token usage, active tunnel status, and local CPU/Mem load.
+
+### High-Fidelity Tool Visualization
+- **Improvement:** Use **Sparklines** for financial/token data and **Step-Progress Bars** for multi-stage engineering tasks (Build -> Test -> Deploy).
+- **Branding:** Use **Gradients** and **Boxen** to create distinct "Tool Cards" for destructive actions.
+
+### Agent-Specific UI Skins
+- **Improvement:** Assign each subagent a "Visual Profile."
+  - **Security Agent:** A dark-mode, matrix-inspired theme with monospaced "hacker" fonts for scan results.
+  - **Finance Analyst:** A clean, spreadsheet-inspired theme with green/red status indicators for ROI data.
+  - **Full-Stack Coder:** A syntax-highlighted diff viewer integrated directly into the CLI feedback loop.
+
+### Command-Line "Micro-Interactions"
+- **Improvement:** Add sound cues (optional) and subtle animations for transitions (e.g., when a task is handed off from Strategy to Engineering).
+- **Feedback:** Use a "Pulse" animation on the spinner when an agent is waiting for a tool response, indicating active life.
+
+---
+
+## 3. The "ZilMate High-Fidelity" Roadmap
+
+1. **Phase 1: Component Refactor** - Move all CLI rendering to a centralized "Design System" folder. Define tokens for borders, padding, and gradients.
+2. **Phase 2: Dash Mode** - Introduce `zilmate swarm --dash` which launches the persistent TUI dashboard instead of the scrolling log.
+3. **Phase 3: Rich Previews** - Implement TUI-based previews for images (using Sixel or ASCII art), PDFs, and code diffs.
+4. **Phase 4: Multi-Modal Feedback** - Integrate the "Visual Audit" results (screenshots) directly into the CLI using terminal image protocols (iTerm2/Kitty/Sixel).
+
+---
+*End of CLI Audit*
