@@ -1,10 +1,12 @@
-﻿import chalk from 'chalk';
+import chalk from 'chalk';
+import logUpdate from 'log-update';
 import { marked } from 'marked';
 import type { Tokens } from 'marked';
 import type { ProgressEvent } from '../runtime/progress.js';
 import { createActivitySpinner, type ActivitySpinner } from './spinner.js';
+import { getDeptTheme, agentCard, toolBadge, theme as zilTheme } from './theme.js';
 
-const maxWidth = () => Math.min(process.stdout.columns || 96, 120);
+const maxWidth = () => Math.min(process.stdout.columns || 96, 110);
 const divider = (color = chalk.gray) => color('─'.repeat(Math.min(maxWidth(), 88)));
 const zilmateBanner = String.raw`
 ███████╗██╗██╗     ███╗   ███╗ █████╗ ████████╗███████╗
@@ -17,7 +19,7 @@ const zilmateBanner = String.raw`
 
 function stripInline(markdown: string) {
   return markdown
-    .replace(/\\_/g, '_')
+    .replace(/\_/g, '_')
     .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
     .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1 ($2)')
     .replace(/`([^`]+)`/g, '$1')
@@ -47,66 +49,52 @@ function renderHeading(token: Tokens.Heading) {
   if (token.depth === 1) {
     return `${chalk.cyan(divider())}\n${chalk.bold.cyanBright(text)}\n${chalk.cyan(divider())}`;
   }
-  if (token.depth === 2) return `${chalk.bold.cyan(text)}\n${chalk.cyan('─'.repeat(Math.min(text.length, 60)))}`;
-  return chalk.bold.underline(text);
+  if (token.depth === 2) {
+    return `\n${chalk.bold.cyan(text)}\n${chalk.cyan('─'.repeat(Math.min(text.length + 2, 40)))}`;
+  }
+  return `\n${chalk.bold.white(text)}`;
 }
 
 function renderList(token: Tokens.List, indent = 0) {
-  const pad = ' '.repeat(indent);
+  const bullet = token.ordered ? (i: number) => chalk.cyan(`${i + 1}.`) : () => chalk.cyan('•');
   return token.items
-    .map((item, index) => {
-      const marker = token.ordered ? chalk.cyan(`${index + 1}.`) : chalk.cyan('•');
-      const raw = 'text' in item ? String(item.text) : '';
-      const text = renderInline(stripInline(raw).replace(/\n+/g, ' '));
-      return `${pad}${marker} ${text}`;
-    })
+    .map((item, i) => `${'  '.repeat(indent)}${bullet(i)} ${renderInline(item.text)}`)
     .join('\n');
 }
 
 function renderCode(token: Tokens.Code) {
-  const lang = token.lang ? chalk.gray(` ${token.lang}`) : '';
-  return `${chalk.gray(`┌─ code${lang}`)}\n${chalk.cyan(token.text)}\n${chalk.gray('└─')}`;
+  const text = token.text.trim();
+  const border = chalk.gray('│');
+  return text.split('\n').map(line => `${border} ${chalk.yellow(line)}`).join('\n');
 }
 
 function renderBlockquote(token: Tokens.Blockquote) {
-  const body = renderTokens(token.tokens || [], 0)
-    .split('\n')
-    .map((line) => `${chalk.gray('│')} ${chalk.gray.italic(line)}`)
-    .join('\n');
-  return body;
+  return chalk.italic.gray(token.text.trim().split('\n').map(l => `> ${l}`).join('\n'));
 }
 
 function renderTable(token: Tokens.Table) {
-  const rows = [
-    token.header.map((cell) => stripInline(cell.text)),
-    ...token.rows.map((row) => row.map((cell) => stripInline(cell.text))),
-  ];
-  const widths = tableWidths(rows[0] || [], rows.slice(1));
+  const headers = token.header.map(h => stripInline(h.text));
+  const rows = token.rows.map(row => row.map(cell => stripInline(cell.text)));
+  return renderTableString(headers, rows);
+}
+
+function renderTableString(headers: string[], rows: string[][]) {
+  if (rows.length === 0) return '';
+  const widths = tableWidths(headers, rows);
   const top = `╭${widths.map((width) => '─'.repeat(width + 2)).join('┬')}╮`;
   const middle = `├${widths.map((width) => '─'.repeat(width + 2)).join('┼')}┤`;
   const bottom = `╰${widths.map((width) => '─'.repeat(width + 2)).join('┴')}╯`;
-
-  const renderMultiLineRow = (row: string[], header = false) => {
-    const lines: string[][] = row.map((cell, index) => wrapText(cell, widths[index]!));
-    const height = Math.max(...lines.map((l) => l.length));
-    const output: string[] = [];
-
-    for (let i = 0; i < height; i++) {
-      const parts = lines.map((cellLines, index) => {
-        const text = cellLines[i] || '';
-        const padded = text.padEnd(widths[index]!);
-        return ` ${header ? chalk.bold.cyanBright(padded) : colorCell(padded)} `;
-      });
-      output.push(`│${parts.join('│')}│`);
-    }
-    return output.join('\n');
-  };
-
+  const render = (row: string[], header = false) => (
+    `│${row.map((cell, index) => {
+      const value = clip(cell, widths[index] ?? 12);
+      return ` ${header ? chalk.bold.cyanBright(value) : colorCell(value)} `;
+    }).join('│')}│`
+  );
   return [
     chalk.cyan(top),
-    renderMultiLineRow(rows[0] || [], true),
+    render(rows[0] || [], true),
     chalk.cyan(middle),
-    ...rows.slice(1).map((row) => renderMultiLineRow(row)),
+    ...rows.slice(1).map((row) => render(row)),
     chalk.cyan(bottom),
   ].join('\n');
 }
@@ -166,40 +154,6 @@ export function clip(value: unknown, width: number) {
   return `${text.slice(0, Math.max(0, width - 1))}…`;
 }
 
-/**
- * Wraps text into an array of strings based on a maximum width.
- * Preserves words when possible.
- */
-export function wrapText(value: unknown, width: number): string[] {
-  const text = value === undefined || value === null ? '' : String(value).replace(/\s+/g, ' ').trim();
-  if (text.length <= width) return [text];
-
-  const lines: string[] = [];
-  const words = text.split(' ');
-  let currentLine = '';
-
-  for (const word of words) {
-    if ((currentLine + word).length <= width) {
-      currentLine += (currentLine ? ' ' : '') + word;
-    } else {
-      if (currentLine) lines.push(currentLine);
-      if (word.length > width) {
-        // Force split long words
-        let remaining = word;
-        while (remaining.length > width) {
-          lines.push(remaining.slice(0, width));
-          remaining = remaining.slice(width);
-        }
-        currentLine = remaining;
-      } else {
-        currentLine = word;
-      }
-    }
-  }
-  if (currentLine) lines.push(currentLine);
-  return lines;
-}
-
 function plain(value: unknown) {
   return value === undefined || value === null ? '' : String(value).replace(/\s+/g, ' ').trim();
 }
@@ -230,9 +184,7 @@ function tableWidths(headers: string[], rows: string[][]) {
   const available = Math.max(40, maxWidth() - headers.length * 3 - 1);
   const minimums = headers.map((header) => Math.min(Math.max(header.length, 6), 12));
   const natural = headers.map((header, index) => Math.max(header.length, ...rows.map((row) => plain(row[index]).length)));
-
-  // Weights: Give more space to columns with lots of text
-  let widths = natural.map((width, index) => Math.max(minimums[index]!, Math.min(width, index === headers.length - 1 ? 60 : 30)));
+  let widths = natural.map((width, index) => Math.max(minimums[index]!, Math.min(width, index === headers.length - 1 ? 52 : 22)));
   let total = widths.reduce((sum, width) => sum + width, 0);
 
   while (total > available) {
@@ -258,28 +210,18 @@ export function printTable(headers: string[], rows: string[][]) {
   const top = `╭${widths.map((width) => '─'.repeat(width + 2)).join('┬')}╮`;
   const middle = `├${widths.map((width) => '─'.repeat(width + 2)).join('┼')}┤`;
   const bottom = `╰${widths.map((width) => '─'.repeat(width + 2)).join('┴')}╯`;
-
-  const renderMultiLineRow = (row: string[], header = false) => {
-    const lines: string[][] = row.map((cell, index) => wrapText(cell, widths[index]!));
-    const height = Math.max(...lines.map((l) => l.length));
-    const output: string[] = [];
-
-    for (let i = 0; i < height; i++) {
-      const parts = lines.map((cellLines, index) => {
-        const text = cellLines[i] || '';
-        const padded = text.padEnd(widths[index]!);
-        return ` ${header ? chalk.bold.cyanBright(padded) : colorCell(padded)} `;
-      });
-      output.push(`│${parts.join('│')}│`);
-    }
-    return output.join('\n');
-  };
+  const renderRow = (row: string[], header = false) => (
+    `│${row.map((cell, index) => {
+      const value = clip(cell, widths[index]!);
+      return ` ${header ? chalk.bold.cyanBright(value) : colorCell(value)} `;
+    }).join('│')}│`
+  );
 
   console.log(chalk.cyan(top));
-  console.log(renderMultiLineRow(headers, true));
+  console.log(renderRow(headers, true));
   console.log(chalk.cyan(middle));
   rows.forEach((row, index) => {
-    console.log(renderMultiLineRow(row));
+    console.log(renderRow(row));
     if (index < rows.length - 1) console.log(chalk.gray(`├${widths.map((width) => '─'.repeat(width + 2)).join('┼')}┤`));
   });
   console.log(chalk.cyan(bottom));
@@ -326,60 +268,50 @@ export function printThinking() {
 }
 
 export function printProgress(event: ProgressEvent) {
-  printProgressWithSpinner(event);
+  printProgressWithSticky(event);
 }
 
 let activeSpinner: ActivitySpinner | undefined;
 
 export function createProgressPrinter() {
-  return (event: ProgressEvent) => printProgressWithSpinner(event);
+  return (event: ProgressEvent) => printProgressWithSticky(event);
 }
 
-function printProgressWithSpinner(event: ProgressEvent) {
+function printProgressWithSticky(event: ProgressEvent) {
   if (event.type === 'thinking') {
-    if (!activeSpinner) activeSpinner = createActivitySpinner(event.label || 'Thinking');
-    else activeSpinner.update(event.label || 'Thinking', event.detail);
+    const detail = event.detail ? ` ${chalk.gray(`(${event.detail})`)}` : '';
+    logUpdate(`${zilTheme.thinking('✶')} ${zilTheme.thinking(event.label || 'Thinking')}${detail} ${chalk.gray('(Ctrl+C to interrupt)')}`);
     return;
   }
 
   if (event.type === 'done') {
-    activeSpinner?.stop('Ready');
-    activeSpinner = undefined;
+    logUpdate.clear();
+    logUpdate.done();
     console.log(chalk.green(`✓ ${event.label}`));
     return;
   }
 
-  if (activeSpinner) {
-    activeSpinner.stop();
-    activeSpinner = undefined;
-  }
+  logUpdate.clear();
 
   if (event.type === 'tool:start') {
-    const label = event.detail ? `${event.label}(${event.detail.slice(0, 80)})` : event.label;
-    console.log(`${chalk.green('●')} ${chalk.hex('#A78BFA')(label)}`);
+    console.log(toolBadge(event.label, 'start') + (event.detail ? chalk.gray(` — ${event.detail.slice(0, 80)}`) : ''));
     return;
   }
 
   if (event.type === 'tool:end') {
-    const summary = event.detail ? `${event.label} · ${event.detail.slice(0, 100)}` : event.label;
-    console.log(`${chalk.gray('  └')} ${chalk.gray(summary)}`);
+    console.log(chalk.gray('  └ ') + toolBadge(event.label, 'end') + (event.detail ? chalk.gray(` · ${event.detail.slice(0, 100)}`) : ''));
+    return;
+  }
+
+  if (event.type === 'tool:error') {
+    console.log(toolBadge(event.label, 'error') + chalk.red(` — ${event.detail || 'Failed'}`));
     return;
   }
 
   if (event.type === 'subagent:start') {
     const isDept = event.agent?.startsWith('dept:');
-    const deptName = isDept ? event.agent!.split(':')[1] : null;
-    const color = deptName === 'Strategy' ? chalk.hex('#0EA5E9') :
-                  deptName === 'Engineering' ? chalk.hex('#F43F5E') :
-                  deptName === 'Growth' ? chalk.hex('#10B981') :
-                  deptName === 'Revenue' ? chalk.hex('#EC4899') :
-                  deptName === 'Operations' ? chalk.hex('#F59E0B') :
-                  deptName === 'Security' ? chalk.hex('#14B8A6') :
-                  deptName === 'Data' ? chalk.hex('#8B5CF6') : chalk.magenta;
-
-    console.log(color(`\n╭─ ${event.agent || 'subagent'} ─ ${event.label}`));
-    if (event.detail) console.log(chalk.gray(`│  ${clip(event.detail, maxWidth() - 6)}`));
-    console.log(color('╰─'));
+    const deptName = (isDept ? event.agent!.split(':')[1] : event.agent) || 'General';
+    console.log('\n' + agentCard(deptName, deptName, event.label + (event.detail ? `\n\n${event.detail}` : ''), maxWidth()));
     return;
   }
 
@@ -388,7 +320,7 @@ function printProgressWithSpinner(event: ProgressEvent) {
     step: '→',
     'tool:start': '▶',
     'tool:end': '✓',
-    'tool:error': '!',
+    'tool:error': '✖',
     'search:start': '⌕',
     'search:end': '✓',
     'fetch:start': '↓',
