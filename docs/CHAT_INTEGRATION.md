@@ -2,7 +2,32 @@
 
 This document outlines how to integrate ZilMate into third-party chat platforms like Slack, Telegram, Microsoft Teams, and iMessage, enabling both reactive (responding to mentions) and proactive (reporting events) capabilities.
 
-## 1. Unified Integration with @vercel/chat (Chat SDK)
+## 1. Professional Setup & Diagnostics
+
+As the project owner, I've integrated Chat as a first-class citizen in the ZilMate lifecycle. You don't need to manually hack config files; the CLI handles it for you.
+
+### Interactive Setup
+Run the main setup and look for the **Chat Channels** section:
+```bash
+zilmate setup
+```
+Or configure chat specifically:
+```bash
+zilmate setup chat
+```
+
+You will be prompted for:
+*   **SLACK_BOT_TOKEN** / **SLACK_SIGNING_SECRET**
+*   **TELEGRAM_BOT_TOKEN**
+
+### Health Checks
+Verify your chat configuration at any time with:
+```bash
+zilmate doctor
+```
+The doctor will report which channels are active and if any tokens are missing.
+
+## 2. Unified Integration with @vercel/chat (Chat SDK)
 
 ZilMate's server SDK is designed to plug directly into the [Chat SDK](https://github.com/vercel/chat) ecosystem. This provides a single interface for multiple adapters.
 
@@ -12,46 +37,36 @@ npm install chat @chat-adapter/slack @chat-adapter/telegram
 ```
 
 ### Implementation Example
-Create a bridge file (e.g., `src/chat-bridge.ts`) that connects ZilMate's Manager to the chat adapters.
+Use the `handleChatMessage` bridge (`src/runtime/chat-bridge.ts`) to connect ZilMate's Manager to your chat adapters.
 
 ```typescript
 import { Chat } from "chat";
 import { createSlackAdapter } from "@chat-adapter/slack";
-import { createTelegramAdapter } from "@chat-adapter/telegram";
-import { createZilMate } from "zilmate/server";
+import { handleChatMessage } from "./runtime/chat-bridge.js";
 
 const bot = new Chat({
   adapters: {
     slack: createSlackAdapter(),
-    telegram: createTelegramAdapter({ token: process.env.TELEGRAM_TOKEN }),
   },
 });
 
-// Reactive: Respond to mentions
 bot.onNewMention(async (thread, message) => {
-  const zilmate = createZilMate({
-    sessionId: `chat-${message.adapter.name}-${message.author.id}`,
-    onProgress: (e) => {
-      // Stream thinking progress to the chat
-      if (e.type === 'step') thread.post(`_Thinking: ${e.label}_`);
-    }
+  await handleChatMessage({
+    text: message.text,
+    authorId: message.author.id,
+    platform: 'slack',
+    onReply: (text) => thread.post(text),
+    onStep: (label) => thread.post(`_Thinking: ${label}_`)
   });
-
-  const { text } = await zilmate.manager({ message: message.text });
-  await thread.post(text);
 });
 ```
 
-## 2. Proactive Reporting (The "Powerful" Part)
+## 3. Proactive Reporting (The "Powerful" Part)
 
 ZilMate can act autonomously by reporting business events back to your chat channels.
 
 ### A. Event Triggers (via Composio)
 ZilMate's `orchestrateComposioTrigger` (`src/jobs/trigger-orchestrator.ts`) allows the agent to wake up when external apps (Stripe, HubSpot, GitHub) fire events.
-
-**Workflow:**
-1.  **Configure Trigger:** Use `zilmate triggers create` for an app event.
-2.  **Define Action:** In the orchestrator, add a step to post the result to your chat bridge instead of just a desktop notification.
 
 ### B. Scheduled Briefings (via QStash)
 Use ZilMate's background jobs to schedule tasks that report to you.
@@ -62,7 +77,7 @@ const job = await zilmate.createJob({
 });
 ```
 
-## 3. Supported Platforms & Adapters
+## 4. Supported Platforms & Adapters
 
 | Platform | Adapter Package | Notes |
 |----------|-----------------|-------|
@@ -71,11 +86,6 @@ const job = await zilmate.createJob({
 | **MS Teams**| `@chat-adapter/teams` | Requires Azure Bot Service. |
 | **iMessage**| `chat-adapter-imessage`| Can run locally on macOS or via bridge. |
 | **Discord** | `@chat-adapter/discord`| Ideal for community management. |
-
-## 4. Key Benefits of this Architecture
-*   **State Persistence:** ZilMate's `sessionId` ensures memory carries over across different platforms for the same user.
-*   **Proactive Awareness:** By leveraging `situationalAwarenessTools`, the agent can warn you in chat if a build fails or revenue drops.
-*   **Unified Brain:** You only need to update the ZilMate Manager logic in one place to improve all your chat bots simultaneously.
 
 ## 5. CLI Usage (The "Terminal" Way)
 

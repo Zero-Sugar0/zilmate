@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env node
+#!/usr/bin/env node
 import { Command } from 'commander';
 import { generateText } from 'ai';
 import { requireGatewayAuth } from './config/env.js';
@@ -10,7 +10,7 @@ import { createPostAgent } from './agents/post.agent.js';
 import { createDocsResearchAgent } from './agents/docs-research.agent.js';
 import { generateImageAsset, isImageSize } from './tools/image-generate.tool.js';
 import { startInteractiveChat } from './cli/interactive.js';
-import { runSetup, runVoiceSetup, setVoiceEnabled } from './cli/setup.js';
+import { runSetup, runVoiceSetup, runChatSetup, setVoiceEnabled } from './cli/setup.js';
 import { printError, printJson, printMarkdown, printProgress } from './cli/format.js';
 import { createTerminalConfirmation } from './cli/confirm.js';
 import { getComposioStatus } from './tools/composio.tool.js';
@@ -103,7 +103,7 @@ program
 
 program
   .command('menu')
-  .description('Open the guided ZilMate main menu')
+  .description('Start the ZilMate CLI main menu')
   .action(async () => {
     try {
       await startMainMenu();
@@ -125,51 +125,88 @@ program
   .option('--redis-url <url>', 'optional Upstash Redis REST URL')
   .option('--redis-token <token>', 'optional Upstash Redis REST token')
   .option('--jobs-enabled <true|false>', 'enable or disable background jobs')
-  .option('--qstash-token <token>', 'optional Upstash QStash token for hosted schedules')
-  .option('--job-webhook-url <url>', 'public job webhook URL for QStash callbacks')
-  .option('--job-webhook-secret <secret>', 'shared secret expected by hosted job webhook')
-  .option('--trigger-workflows-enabled <true|false>', 'enable or disable Composio trigger-to-job workflows')
+  .option('--qstash-token <token>', 'optional Upstash QStash token')
+  .option('--job-webhook-url <url>', 'publicly accessible ZilMate webhook URL for scheduling')
+  .option('--job-webhook-secret <secret>', 'secret for verifying job webhooks')
+  .option('--trigger-workflows-enabled <true|false>', 'enable or disable Composio trigger workflows')
   .option('--deepgram-key <key>', 'optional Deepgram API key for realtime voice')
-  .option('--voice-enabled <true|false>', 'enable or disable realtime voice')
-  .option('--voice-listen-model <model>', 'Deepgram listen model, e.g. flux-general-en or flux-general-multi')
-  .option('--voice-tts-model <model>', 'Deepgram Aura TTS model, e.g. aura-2-thalia-en')
-  .option('--voice-language <language>', 'voice language, e.g. en or en-US')
-  .option('--voice-input-device <device>', 'terminal microphone device override for ffmpeg')
-  .option('--screenshot-model <model>', 'vision model for screenshot/camera analysis')
-  .option('--file-roots <roots>', 'comma-separated extra safe roots for file tools')
-  .option('--camera-device <device>', 'optional camera device override, e.g. "video=Integrated Camera"')
-  .option('--install-camera-deps <true|false>', 'install ffmpeg for camera capture when missing')
-  .option('--install-cloudflare-deps <true|false>', 'install cloudflared for job tunnels when missing')
-  .description('Create or update a local .env file for ZilMate')
-  .action(async (options: { path: string; force?: boolean; yes?: boolean; aiGatewayKey?: string; composioKey?: string; zilmateUserId?: string; tavilyKey?: string; redisUrl?: string; redisToken?: string; jobsEnabled?: string; qstashToken?: string; jobWebhookUrl?: string; jobWebhookSecret?: string; triggerWorkflowsEnabled?: string; deepgramKey?: string; voiceEnabled?: string; voiceListenModel?: string; voiceTtsModel?: string; voiceLanguage?: string; voiceInputDevice?: string; screenshotModel?: string; fileRoots?: string; cameraDevice?: string; installCameraDeps?: string; installCloudflareDeps?: string }) => {
+  .option('--voice-enabled <true|false>', 'enable or disable realtime voice by default')
+  .option('--voice-listen-model <model>', 'Deepgram listen model')
+  .option('--voice-tts-model <model>', 'Deepgram TTS model')
+  .option('--voice-language <language>', 'voice language, e.g. en')
+  .option('--voice-input-device <device>', 'specific input device index or id')
+  .option('--screenshot-model <model>', 'vision model for describing screenshots')
+  .option('--file-roots <roots>', 'comma-separated list of approved file roots')
+  .option('--camera-device <device>', 'specific camera device name or id')
+  .option('--install-camera-deps <true|false>', 'install ffmpeg for camera photo capture')
+  .option('--install-cloudflare-deps <true|false>', 'install cloudflared for quick tunnels')
+  .description('Interactive wizard to configure ZilMate credentials and features')
+  .action(async (options: any) => {
     try {
       await runSetup({
         path: options.path,
-        force: Boolean(options.force),
-        yes: Boolean(options.yes),
-        ...(options.aiGatewayKey !== undefined ? { aiGatewayKey: options.aiGatewayKey } : {}),
-        ...(options.composioKey !== undefined ? { composioKey: options.composioKey } : {}),
-        ...(options.zilmateUserId !== undefined ? { zilmateUserId: options.zilmateUserId } : {}),
-        ...(options.tavilyKey !== undefined ? { tavilyKey: options.tavilyKey } : {}),
-        ...(options.redisUrl !== undefined ? { redisUrl: options.redisUrl } : {}),
-        ...(options.redisToken !== undefined ? { redisToken: options.redisToken } : {}),
-        ...(options.jobsEnabled !== undefined ? { jobsEnabled: options.jobsEnabled } : {}),
-        ...(options.qstashToken !== undefined ? { qstashToken: options.qstashToken } : {}),
-        ...(options.jobWebhookUrl !== undefined ? { publicJobWebhookUrl: options.jobWebhookUrl } : {}),
-        ...(options.jobWebhookSecret !== undefined ? { jobWebhookSecret: options.jobWebhookSecret } : {}),
-        ...(options.triggerWorkflowsEnabled !== undefined ? { triggerWorkflowsEnabled: options.triggerWorkflowsEnabled } : {}),
-        ...(options.deepgramKey !== undefined ? { deepgramApiKey: options.deepgramKey } : {}),
-        ...(options.voiceEnabled !== undefined ? { voiceEnabled: options.voiceEnabled } : {}),
-        ...(options.voiceListenModel !== undefined ? { voiceListenModel: options.voiceListenModel } : {}),
-        ...(options.voiceTtsModel !== undefined ? { voiceTtsModel: options.voiceTtsModel } : {}),
-        ...(options.voiceLanguage !== undefined ? { voiceLanguage: options.voiceLanguage } : {}),
-        ...(options.voiceInputDevice !== undefined ? { voiceInputDevice: options.voiceInputDevice } : {}),
-        ...(options.screenshotModel !== undefined ? { screenshotModel: options.screenshotModel } : {}),
-        ...(options.fileRoots !== undefined ? { fileRoots: options.fileRoots } : {}),
-        ...(options.cameraDevice !== undefined ? { cameraDevice: options.cameraDevice } : {}),
-        ...(options.installCameraDeps !== undefined ? { installCameraDeps: options.installCameraDeps } : {}),
-        ...(options.installCloudflareDeps !== undefined ? { installCloudflareDeps: options.installCloudflareDeps } : {}),
+        force: options.force,
+        yes: options.yes,
+        aiGatewayKey: options.aiGatewayKey,
+        composioKey: options.composioKey,
+        zilmateUserId: options.zilmateUserId,
+        tavilyKey: options.tavilyKey,
+        redisUrl: options.redisUrl,
+        redisToken: options.redisToken,
+        jobsEnabled: options.jobsEnabled,
+        qstashToken: options.qstashToken,
+        publicJobWebhookUrl: options.jobWebhookUrl,
+        jobWebhookSecret: options.jobWebhookSecret,
+        triggerWorkflowsEnabled: options.triggerWorkflowsEnabled,
+        deepgramApiKey: options.deepgramKey,
+        voiceEnabled: options.voiceEnabled,
+        voiceListenModel: options.voiceListenModel,
+        voiceTtsModel: options.voiceTtsModel,
+        voiceLanguage: options.voiceLanguage,
+        voiceInputDevice: options.voiceInputDevice,
+        screenshotModel: options.screenshotModel,
+        fileRoots: options.fileRoots,
+        cameraDevice: options.cameraDevice,
+        installCameraDeps: options.installCameraDeps,
+        installCloudflareDeps: options.installCloudflareDeps,
       });
+    } catch (error) {
+      printError(friendlyError(error));
+      process.exitCode = 1;
+    }
+  });
+
+const setup = program.command('setup');
+
+setup
+  .command('voice')
+  .option('-p, --path <file>', 'environment file to create or update', '.env')
+  .option('-f, --force', 'skip the first update confirmation when the env file exists')
+  .option('--deepgram-key <key>', 'Deepgram API key for realtime voice')
+  .option('--voice-listen-model <model>', 'Deepgram listen model')
+  .option('--voice-tts-model <model>', 'Deepgram Aura TTS model')
+  .option('--voice-language <language>', 'voice language, e.g. en')
+  .description('Turn on realtime voice with a focused guided setup')
+  .action(async (options: any) => {
+    try {
+      await runVoiceSetup(options);
+    } catch (error) {
+      printError(friendlyError(error));
+      process.exitCode = 1;
+    }
+  });
+
+setup
+  .command('chat')
+  .option('-p, --path <file>', 'environment file to create or update', '.env')
+  .option('-f, --force', 'skip the first update confirmation when the env file exists')
+  .option('--slack-bot-token <token>', 'Slack Bot Token')
+  .option('--slack-signing-secret <secret>', 'Slack Signing Secret')
+  .option('--telegram-bot-token <token>', 'Telegram Bot Token')
+  .description('Configure Slack and Telegram chat channels')
+  .action(async (options: any) => {
+    try {
+      await runChatSetup(options);
     } catch (error) {
       printError(friendlyError(error));
       process.exitCode = 1;
@@ -178,48 +215,15 @@ program
 
 const voice = program
   .command('voice')
-  .description('Configure and run realtime ZilMate voice mode')
-  .action(async () => {
-    try {
-      printVoiceConfig();
-    } catch (error) {
-      printError(friendlyError(error));
-      process.exitCode = 1;
-    }
-  });
-
-voice
-  .command('setup')
-  .option('-p, --path <file>', 'environment file to create or update', '.env')
-  .option('-f, --force', 'skip the first update confirmation when the env file exists')
-  .option('--deepgram-key <key>', 'Deepgram API key for realtime voice')
-  .option('--voice-listen-model <model>', 'Deepgram listen model, e.g. flux-general-en or flux-general-multi')
-  .option('--voice-tts-model <model>', 'Deepgram Aura TTS model, e.g. aura-2-thalia-en')
-  .option('--voice-language <language>', 'voice language, e.g. en or en-US')
-  .description('Turn on realtime voice with a focused guided setup')
-  .action(async (options: { path: string; force?: boolean; deepgramKey?: string; voiceListenModel?: string; voiceTtsModel?: string; voiceLanguage?: string }) => {
-    try {
-      await runVoiceSetup({
-        path: options.path,
-        force: Boolean(options.force),
-        ...(options.deepgramKey !== undefined ? { deepgramApiKey: options.deepgramKey } : {}),
-        ...(options.voiceListenModel !== undefined ? { voiceListenModel: options.voiceListenModel } : {}),
-        ...(options.voiceTtsModel !== undefined ? { voiceTtsModel: options.voiceTtsModel } : {}),
-        ...(options.voiceLanguage !== undefined ? { voiceLanguage: options.voiceLanguage } : {}),
-      });
-    } catch (error) {
-      printError(friendlyError(error));
-      process.exitCode = 1;
-    }
-  });
+  .description('Manage ZilMate realtime voice features');
 
 voice
   .command('enable')
   .option('-p, --path <file>', 'environment file to update', '.env')
-  .description('Enable realtime voice without opening .env')
+  .description('Enable realtime voice mode in .env')
   .action(async (options: { path: string }) => {
     try {
-      await setVoiceEnabled(true, { path: options.path });
+      await setVoiceEnabled(true, options);
     } catch (error) {
       printError(friendlyError(error));
       process.exitCode = 1;
@@ -229,34 +233,37 @@ voice
 voice
   .command('disable')
   .option('-p, --path <file>', 'environment file to update', '.env')
-  .description('Disable realtime voice without opening .env')
+  .description('Disable realtime voice mode in .env')
   .action(async (options: { path: string }) => {
     try {
-      await setVoiceEnabled(false, { path: options.path });
+      await setVoiceEnabled(false, options);
     } catch (error) {
       printError(friendlyError(error));
       process.exitCode = 1;
     }
   });
 
-voice
+program
   .command('doctor')
-  .description('Check Deepgram realtime voice readiness')
+  .option('--live', 'perform live API and dependency checks')
+  .option('-s, --session <id>', 'session id for live Composio check', 'default')
+  .description('Check ZilMate environment, credentials, and dependencies')
+  .action(async (options: { live?: boolean; session?: string }) => {
+    try {
+      const checks = await runDoctor({ live: options.live, sessionId: options.session });
+      printDoctorChecks(checks);
+    } catch (error) {
+      printError(friendlyError(error));
+      process.exitCode = 1;
+    }
+  });
+
+program
+  .command('config')
+  .description('Show current ZilMate configuration and resolved environment')
   .action(async () => {
     try {
-      await runVoiceDoctor();
-    } catch (error) {
-      printError(friendlyError(error));
-      process.exitCode = 1;
-    }
-  });
-
-voice
-  .command('config')
-  .description('Show realtime voice configuration')
-  .action(() => {
-    try {
-      printVoiceConfig();
+      printJson(await getResolvedConfigSummary());
     } catch (error) {
       printError(friendlyError(error));
       process.exitCode = 1;
@@ -265,12 +272,12 @@ voice
 
 voice
   .command('turn')
-  .argument('<transcript...>', 'spoken user text to route through the ZilMate voice brain')
-  .option('-s, --session <id>', 'persistent voice session id', 'default')
-  .description('Test the ZilMate voice brain with a transcript')
+  .argument('<transcript...>', 'previous dialogue context')
+  .option('-s, --session <id>', 'voice session id', 'default')
+  .description('Request a single voice-formatted response turn')
   .action(async (transcript: string[], options: { session: string }) => {
     try {
-      await runVoiceTurn(transcript.join(' '), options.session);
+      await runVoiceTurn(transcript, options.session);
     } catch (error) {
       printError(friendlyError(error));
       process.exitCode = 1;
@@ -279,19 +286,11 @@ voice
 
 const camera = program
   .command('camera')
-  .description('Diagnose and use the laptop camera for ZilMate desktop tools')
-  .action(async () => {
-    try {
-      await runCameraDoctorCli();
-    } catch (error) {
-      printError(friendlyError(error));
-      process.exitCode = 1;
-    }
-  });
+  .description('Manage desktop camera features');
 
 camera
   .command('doctor')
-  .description('Check camera readiness, OS support, ffmpeg, and default device candidates')
+  .description('Check camera hardware and ffmpeg dependency')
   .action(async () => {
     try {
       await runCameraDoctorCli();
@@ -303,7 +302,7 @@ camera
 
 camera
   .command('list')
-  .description('List camera devices ZilMate can try')
+  .description('List available camera devices')
   .action(async () => {
     try {
       await listCameraDevicesCli();
@@ -315,11 +314,11 @@ camera
 
 camera
   .command('capture')
-  .option('--device <device>', 'camera input to use, e.g. "video=Integrated Camera" or /dev/video0')
-  .description('Capture one still image from the laptop camera')
+  .option('-d, --device <device>', 'specific camera device name or id')
+  .description('Capture a still photo from the desktop camera')
   .action(async (options: { device?: string }) => {
     try {
-      await captureCameraCli(options);
+      await captureCameraCli(options.device);
     } catch (error) {
       printError(friendlyError(error));
       process.exitCode = 1;
@@ -328,7 +327,7 @@ camera
 
 voice
   .command('devices')
-  .description('List terminal microphone devices for live voice')
+  .description('List audio input devices for voice mode')
   .action(async () => {
     try {
       await listVoiceDevices();
@@ -340,14 +339,11 @@ voice
 
 voice
   .command('live')
-  .option('-s, --session <id>', 'persistent voice session id', 'default')
-  .description('Start live terminal microphone voice mode')
+  .option('-s, --session <id>', 'voice session id', 'default')
+  .description('Start a realtime voice session (requires DEEPGRAM_API_KEY)')
   .action(async (options: { session: string }) => {
     try {
-      const command = await runTerminalVoiceLive(options.session);
-      if (command === 'talk') {
-        await startInteractiveChat(options.session);
-      }
+      await runTerminalVoiceLive(options.session);
     } catch (error) {
       printError(friendlyError(error));
       process.exitCode = 1;
@@ -356,11 +352,11 @@ voice
 
 voice
   .command('speak-test')
-  .argument('[text...]', 'text to speak through Deepgram Aura and ffplay')
-  .description('Test ZilMate speaker output without using the microphone')
+  .argument('<text...>', 'text to synthesize into speech')
+  .description('Verify Deepgram TTS by playing a text snippet')
   .action(async (text: string[]) => {
     try {
-      await runVoiceSpeakTest(text.length > 0 ? text.join(' ') : undefined);
+      await runVoiceSpeakTest(text.join(' '));
     } catch (error) {
       printError(friendlyError(error));
       process.exitCode = 1;
@@ -369,7 +365,7 @@ voice
 
 voice
   .command('agent-probe')
-  .description('Open a Deepgram Voice Agent session without attaching microphone audio')
+  .description('Perform a live voice agent handshake test')
   .action(async () => {
     try {
       await runVoiceAgentProbe();
@@ -379,12 +375,54 @@ voice
     }
   });
 
-const jobs = program
-  .command('jobs')
-  .description('Manage ZilMate background jobs, schedules, and worker processing')
+voice
+  .command('doctor')
+  .description('Check audio hardware and voice dependencies')
   .action(async () => {
     try {
-      await listCliJobs({});
+      await runVoiceDoctor();
+    } catch (error) {
+      printError(friendlyError(error));
+      process.exitCode = 1;
+    }
+  });
+
+voice
+  .command('config')
+  .description('Show resolved voice configuration')
+  .action(async () => {
+    try {
+      printVoiceConfig();
+    } catch (error) {
+      printError(friendlyError(error));
+      process.exitCode = 1;
+    }
+  });
+
+const jobs = program
+  .command('jobs')
+  .description('Manage background jobs and schedules');
+
+jobs
+  .command('worker')
+  .description('Start the local job worker to process due schedules')
+  .action(async () => {
+    try {
+      await startCliJobWorker();
+    } catch (error) {
+      printError(friendlyError(error));
+      process.exitCode = 1;
+    }
+  });
+
+jobs
+  .command('listen')
+  .option('-t, --tunnel', 'start a Cloudflare quick tunnel for the webhook server')
+  .option('-p, --port <number>', 'port to listen on', '8787')
+  .description('Start the job webhook server for QStash callbacks')
+  .action(async (options: { tunnel?: boolean; port?: string }) => {
+    try {
+      await startCliJobListener(options);
     } catch (error) {
       printError(friendlyError(error));
       process.exitCode = 1;
@@ -393,10 +431,10 @@ const jobs = program
 
 jobs
   .command('create')
-  .argument('<task...>', 'job task to queue')
-  .option('--schedule <schedule>', 'optional schedule, e.g. hourly, daily, every 15 minutes, cron:0 9 * * *')
-  .option('--run-at <date>', 'optional first run date/time')
-  .description('Queue a ZilMate background job')
+  .argument('<task...>', 'task description')
+  .option('-s, --schedule <cron>', 'cron schedule, e.g. "0 9 * * *"')
+  .option('-a, --at <iso>', 'one-time execution at ISO date/time')
+  .description('Create a new background job')
   .action(async (task: string[], options: { schedule?: string; runAt?: string }) => {
     try {
       await createCliJob(task.join(' '), options);
@@ -408,9 +446,9 @@ jobs
 
 jobs
   .command('list')
-  .option('--status <status>', 'filter by queued, running, succeeded, failed, or cancelled')
-  .option('-l, --limit <number>', 'maximum jobs to return', '25')
-  .description('List ZilMate jobs')
+  .option('-s, --status <status>', 'filter by job status')
+  .option('-l, --limit <number>', 'maximum jobs to show', '20')
+  .description('List recently created jobs')
   .action(async (options: { status?: string; limit?: string }) => {
     try {
       await listCliJobs(options);
@@ -423,7 +461,7 @@ jobs
 jobs
   .command('status')
   .argument('<id>', 'job id')
-  .description('Show one ZilMate job')
+  .description('Show status and metadata for a specific job')
   .action(async (id: string) => {
     try {
       await showCliJob(id);
@@ -436,7 +474,7 @@ jobs
 jobs
   .command('logs')
   .argument('<id>', 'job id')
-  .description('Show logs for one ZilMate job')
+  .description('Show execution logs for a job')
   .action(async (id: string) => {
     try {
       await showCliJobLogs(id);
@@ -449,7 +487,7 @@ jobs
 jobs
   .command('run')
   .argument('<id>', 'job id')
-  .description('Run one ZilMate job now')
+  .description('Manually trigger a job to run immediately')
   .action(async (id: string) => {
     try {
       await runCliJob(id);
@@ -460,41 +498,9 @@ jobs
   });
 
 jobs
-  .command('worker')
-  .option('-i, --interval <seconds>', 'poll interval in seconds', '10')
-  .option('--once', 'process due jobs once and exit')
-  .option('--quiet', 'suppress worker status messages')
-  .description('Start the local ZilMate job worker')
-  .action(async (options: { interval?: string; once?: boolean; quiet?: boolean }) => {
-    try {
-      await startCliJobWorker(options);
-    } catch (error) {
-      printError(friendlyError(error));
-      process.exitCode = 1;
-    }
-  });
-
-jobs
-  .command('listen')
-  .option('-p, --port <number>', 'local webhook port', process.env.ZILMATE_WEBHOOK_PORT || '8787')
-  .option('--tunnel', 'also start a Cloudflare quick tunnel (requires cloudflared)')
-  .description('Run the QStash job webhook server (and optional Cloudflare tunnel)')
-  .action(async (options: { port?: string; tunnel?: boolean }) => {
-    try {
-      await startCliJobListener({
-        ...(options.port !== undefined ? { port: options.port } : {}),
-        tunnel: Boolean(options.tunnel),
-      });
-    } catch (error) {
-      printError(friendlyError(error));
-      process.exitCode = 1;
-    }
-  });
-
-jobs
   .command('cancel')
   .argument('<id>', 'job id')
-  .description('Cancel one ZilMate job')
+  .description('Cancel a pending or scheduled job')
   .action(async (id: string) => {
     try {
       await cancelCliJob(id);
@@ -504,26 +510,17 @@ jobs
     }
   });
 
-program
+const workspace = program
   .command('workspace')
-  .description('ZilMate workspace (notebook, skills, outputs, logs)')
-  .action(async () => {
-    try {
-      const layout = workspaceLayout();
-      printJson({ root: layout.root, paths: layout });
-    } catch (error) {
-      printError(friendlyError(error));
-      process.exitCode = 1;
-    }
-  });
+  .description('Manage the ZilMate local workspace folder');
 
-program
-  .command('workspace-init')
-  .description('Create or repair the ZilMate workspace folder structure')
+workspace
+  .command('init')
+  .description('Initialize a new ZilMate workspace (notebook, skills, outputs)')
   .action(async () => {
     try {
-      const layout = await initWorkspace();
-      printJson({ ok: true, root: layout.root, paths: layout });
+      await initWorkspace();
+      console.log(`Workspace ready at ${workspaceLayout().root}`);
     } catch (error) {
       printError(friendlyError(error));
       process.exitCode = 1;
@@ -532,116 +529,26 @@ program
 
 program
   .command('heal')
-  .argument('[summary]', 'what happened this session')
-  .option('-s, --session <id>', 'session id to load chat turns from', 'default')
-  .option('--deep', 'run two-pass deep heal')
-  .description('Review recent work, save learnings, and update notebook/knowledge graph')
-  .action(async (summary: string | undefined, options: { session?: string; deep?: boolean }) => {
-    try {
-      requireGatewayAuth();
-      const result = await runHeal({
-        sessionSummary: summary?.trim() || 'Recent ZilMate session — capture durable learnings and any missed personal context.',
-        sessionId: options.session || 'default',
-        ...(options.deep ? { deep: true } : {}),
-      });
-      await printResult(result);
-    } catch (error) {
-      printError(friendlyError(error));
-      process.exitCode = 1;
-    }
-  });
-
-program
-  .command('doctor')
-  .option('--live', 'also run live Gateway and Composio checks')
-  .option('-s, --session <id>', 'Composio/ZilMate session id for live checks', 'default')
-  .option('--json', 'print JSON output')
-  .description('Check local ZilMate config, keys, memory, Node, and optional live integrations')
-  .action(async (options: { live?: boolean; session: string; json?: boolean }) => {
-    try {
-      const checks = await runDoctor({ live: Boolean(options.live), sessionId: options.session });
-      if (options.json) {
-        printJson(checks);
-      } else {
-        printDoctorChecks(checks);
-      }
-    } catch (error) {
-      printError(friendlyError(error));
-      process.exitCode = 1;
-    }
-  });
-
-const envCommand = program
-  .command('env')
-  .description('Inspect ZilMate environment setup');
-
-envCommand
-  .command('check')
-  .option('--live', 'also run live Gateway and Composio checks')
-  .option('-s, --session <id>', 'Composio/ZilMate session id for live checks', 'default')
-  .option('--json', 'print JSON output')
-  .description('Alias for zilmate doctor focused on environment readiness')
-  .action(async (options: { live?: boolean; session: string; json?: boolean }) => {
-    try {
-      const checks = await runDoctor({ live: Boolean(options.live), sessionId: options.session });
-      if (options.json) {
-        printJson(checks);
-      } else {
-        printDoctorChecks(checks);
-      }
-    } catch (error) {
-      printError(friendlyError(error));
-      process.exitCode = 1;
-    }
-  });
-
-program
-  .command('config')
-  .description('Show sanitized ZilMate configuration without secrets')
+  .description('Analyze terminal errors and attempt to auto-fix the codebase')
   .action(async () => {
     try {
-      printJson(await getResolvedConfigSummary());
+      requireGatewayAuth();
+      await runHeal();
     } catch (error) {
       printError(friendlyError(error));
       process.exitCode = 1;
     }
   });
 
-program
-  .command('remember')
-  .argument('<note...>', 'memory text to save')
-  .option('-t, --tag <tag...>', 'optional memory tags')
-  .description('Save a durable long-term ZilMate memory')
-  .action(async (note: string[], options: { tag?: string[] }) => {
-    try {
-      const memory = await remember(note.join(' '), options.tag ?? []);
-      printJson(memory);
-    } catch (error) {
-      printError(friendlyError(error));
-      process.exitCode = 1;
-    }
-  });
+const memory = program
+  .command('memory')
+  .description('Manage durable long-term ZilMate memory');
 
-program
-  .command('recall')
-  .argument('[query...]', 'memory query; omitted means recent memories')
-  .option('-l, --limit <number>', 'maximum memories to return', '8')
-  .description('Recall durable long-term ZilMate memories')
-  .action(async (query: string[] | undefined, options: { limit: string }) => {
-    try {
-      const limit = Number.parseInt(options.limit, 10);
-      printJson(await recall((query ?? []).join(' '), Number.isFinite(limit) ? limit : 8));
-    } catch (error) {
-      printError(friendlyError(error));
-      process.exitCode = 1;
-    }
-  });
-
-program
+memory
   .command('forget')
-  .argument('[id]', 'memory id to forget')
-  .option('--all', 'forget all memories')
-  .description('Forget one durable memory by id')
+  .argument('[id]', 'memory id to delete')
+  .option('--all', 'clear all durable long-term memories')
+  .description('Delete one or all durable long-term memories')
   .action(async (id: string | undefined, options: { all?: boolean }) => {
     try {
       if (options.all) {
@@ -948,11 +855,7 @@ if (process.argv.length <= 2) {
 } else {
   await initWorkspace().catch(() => undefined);
   await program.parseAsync(process.argv).catch((error) => {
-  printError(friendlyError(error));
-  process.exitCode = 1;
+    printError(friendlyError(error));
+    process.exitCode = 1;
   });
 }
-
-
-
-

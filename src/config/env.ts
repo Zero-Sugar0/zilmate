@@ -1,4 +1,4 @@
-﻿import 'dotenv/config';
+import 'dotenv/config';
 import { config as loadDotenv } from 'dotenv';
 import { existsSync } from 'node:fs';
 
@@ -51,6 +51,10 @@ export type Env = {
   imageModel: string;
   screenshotVisionModel: string;
   codingModel: string | undefined;
+  slackBotToken: string | undefined;
+  slackSigningSecret: string | undefined;
+  telegramBotToken: string | undefined;
+  chatIntegrationEnabled: boolean;
 };
 
 export const env: Env = {
@@ -89,6 +93,10 @@ export const env: Env = {
   imageModel: process.env.ZILO_IMAGE_MODEL || 'google/gemini-3.1-flash-image',
   screenshotVisionModel: process.env.ZILMATE_SCREENSHOT_MODEL || 'google/gemini-3.1-flash-lite',
   codingModel: process.env.ZILO_CODING_MODEL || undefined,
+  slackBotToken: process.env.SLACK_BOT_TOKEN,
+  slackSigningSecret: process.env.SLACK_SIGNING_SECRET,
+  telegramBotToken: process.env.TELEGRAM_BOT_TOKEN,
+  chatIntegrationEnabled: process.env.CHAT_INTEGRATION_ENABLED === 'true',
 };
 
 export function hasGatewayAuth() {
@@ -138,4 +146,8 @@ export function requireDeepgram() {
     throw new Error('Missing DEEPGRAM_API_KEY. Run `zilmate setup` to enable realtime voice mode.');
   }
   return env.deepgramApiKey;
+}
+
+export function hasChatIntegration() {
+  return env.chatIntegrationEnabled && (Boolean(env.slackBotToken) || Boolean(env.telegramBotToken));
 }
