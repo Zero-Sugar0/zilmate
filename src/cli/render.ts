@@ -1,7 +1,7 @@
+// src/cli/render.ts
 import { models } from '../config/models.js';
-import { theme, termWidth, boxLine, wrapText } from './theme.js';
+import { theme, termWidth, boxLine } from './theme.js';
 import { renderMarkdown } from './format.js';
-import chalk from 'chalk';
 
 export function printWelcomeCard(options: {
   cwd: string;
@@ -10,17 +10,16 @@ export function printWelcomeCard(options: {
   workspace?: string;
 }) {
   const w = termWidth(92);
-  const pad = Math.max(0, w - 4);
   console.log('');
-  console.log(boxLine('top', w, theme.brand));
-  console.log(theme.brand('│ ') + theme.textBright('✦ ZilMate CEO Dashboard'.padEnd(pad)));
-  console.log(theme.brand('│ ') + theme.muted(`/help commands · /swarm business · /model pick · /exit`.padEnd(pad)));
-  console.log(theme.brand('│ ') + theme.muted(`cwd: ${options.cwd}`.slice(0, pad).padEnd(pad)));
+  console.log(boxLine('top', w));
+  console.log(theme.accent('│ ') + theme.textBright('* Welcome to ZilMate CEO Dashboard'));
+  console.log(theme.accent('│ ') + theme.muted('/help commands · /swarm business · /model pick · /exit'));
+  console.log(theme.accent('│ ') + theme.muted(`cwd: ${options.cwd}`));
   if (options.workspace) {
-    console.log(theme.brand('│ ') + theme.muted(`workspace: ${options.workspace}`.slice(0, pad).padEnd(pad)));
+    console.log(theme.accent('│ ') + theme.muted(`workspace: ${options.workspace}`));
   }
-  console.log(theme.brand('│ ') + theme.muted(`session: ${options.sessionId} · manager: ${options.model || models.manager}`.slice(0, pad).padEnd(pad)));
-  console.log(boxLine('bot', w, theme.brand));
+  console.log(theme.accent('│ ') + theme.muted(`session: ${options.sessionId} · manager: ${options.model || models.manager}`));
+  console.log(boxLine('bot', w));
   console.log('');
 }
 
@@ -41,27 +40,18 @@ export function printTips() {
 
 export function printUserTurn(message: string) {
   const w = termWidth(92);
-  const padding = 4; // Length of '│ > '
-  const innerWidth = Math.max(10, w - padding - 2);
-  const lines = wrapText(message, innerWidth);
-
-  // Filter out excessive empty lines that might come from pasting
-  const displayLines = lines.filter((line, i) => {
-    const prev = lines[i - 1];
-    return line.trim() || (i > 0 && prev !== undefined && prev.trim());
-  });
-
+  const lines = message.split('\n');
   console.log('');
-  console.log(boxLine('top', w, theme.ok));
-  for (const line of displayLines) {
-    console.log(theme.ok('│ ') + theme.textBright(`> ${line}`));
+  console.log(boxLine('top', w));
+  for (const line of lines) {
+    console.log(theme.accent('│ ') + theme.textBright(`> ${line}`));
   }
-  console.log(boxLine('bot', w, theme.ok));
+  console.log(boxLine('bot', w));
 }
 
 export function printAssistantTurn(markdown: string) {
   console.log('');
-  console.log(theme.agentLabel('✦ ZilMate'));
+  console.log(theme.agentLabel('ZilMate'));
   console.log(theme.dim('─'.repeat(Math.min(termWidth() - 4, 72))));
   console.log(renderMarkdown(markdown));
   console.log('');
@@ -69,7 +59,7 @@ export function printAssistantTurn(markdown: string) {
 
 export function printToolStart(name: string, detail?: string) {
   const label = detail ? `${name}(${detail})` : name;
-  console.log(`${theme.ok('▶')} ${theme.tool(label)}`);
+  console.log(`${theme.ok('●')} ${theme.tool(label)}`);
 }
 
 export function printToolDone(summary: string) {

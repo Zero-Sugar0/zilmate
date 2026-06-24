@@ -7,6 +7,10 @@ import { createSwarmSpecialist } from './registry.js';
 import { emitProgress } from '../../runtime/progress.js';
 import { crossAppLedgerTools } from '../../tools/cross-app-ledger.tool.js';
 import { swarmMemoryTools } from '../../tools/swarm-memory.tool.js';
+import { swarmOpsTools } from '../../tools/swarm-ops.tool.js';
+import { mkdir } from 'node:fs/promises';
+import path from 'node:path';
+import { workspaceLayout } from '../../workspace/paths.js';
 
 export async function createDigitalCorporationMain(runId: string = 'default') {
   const orchestrator = SwarmOrchestrator.getInstance();
@@ -20,10 +24,10 @@ export async function createDigitalCorporationMain(runId: string = 'default') {
 
       'MANAGEMENT PHILOSOPHY:',
       '1. MANAGE HEADS: Your primary interaction should be with Departmental Heads (e.g., CTO, CMO, CRO). Assign departmental goals to them.',
-      '2. DELEGATE, DON’T DO: Do not micromanage specialists. Let the Heads handle their teams.',
-      '3. INFORMATION SYNTHESIS: specialists have "Departmental Isolation." You act as the bridge. If the CTO needs data from the CMO, you fetch it and pass it across.',
-      '4. GLOBAL MEMORY: Maintain the "Global Corporate Notebook" (sessionId: "default"). Promote only critical facts from departments.',
-      '5. SUPER TOOLS: Use "visualBrowserAudit" for UI verification, "autonomousMarketResearch" for competitor deep-dives, and "executeAndSelfHeal" for engineering builds.',
+      '2. PROJECT SANDBOXING: For every new project or objective, use "createProjectSandbox" to establish a dedicated directory. Assign this path to agents.',
+      '3. OPERATIONAL CONTROL: Use "pauseDepartment" if a department is making errors or requires user input. Use "resumeDepartment" to restart.',
+      '4. INFORMATION SYNTHESIS: specialists have "Departmental Isolation." You act as the bridge. If the CTO needs data from the CMO, you fetch it and pass it across.',
+      '5. GLOBAL MEMORY: Maintain the "Global Corporate Notebook" (sessionId: "default"). Promote only critical facts from departments.',
 
       'DEPARTMENTAL DOMAINS & HEADS:',
       '- Strategy: Strategy Head (productManager, marketAnalyst, uxResearcher).',
@@ -39,17 +43,33 @@ export async function createDigitalCorporationMain(runId: string = 'default') {
     tools: {
       ...crossAppLedgerTools,
       ...swarmMemoryTools,
+      ...swarmOpsTools,
+      createProjectSandbox: tool({
+        description: 'Create a dedicated project directory in the workspace to isolate files and assets for a specific objective.',
+        inputSchema: z.object({
+          projectName: z.string().min(3).describe('Slugified name of the project (e.g. "quantum-seo-campaign").'),
+        }),
+        execute: async ({ projectName }) => {
+          const projectDir = path.join(workspaceLayout().outputs, 'projects', projectName);
+          await mkdir(projectDir, { recursive: true });
+          emitProgress({ type: 'step', label: 'Project sandbox created', detail: projectDir });
+          return { status: 'Sandbox ready', path: projectDir };
+        },
+      }),
       delegateToSpecialist: tool({
         description: 'Delegate a business task to a specialized swarm agent or Departmental Head in the corporation.',
         inputSchema: z.object({
           task: z.string().min(10).describe('Detailed description of the task.'),
           agentKey: z.string().describe('The key of the specialist or Head to use (e.g., ctoEngineering, fullStackCoder, cmoGrowth).'),
+          projectPath: z.string().optional().describe('Optional sandbox path for the agent to work in.'),
         }),
-        execute: async ({ task, agentKey }) => {
+        execute: async ({ task, agentKey, projectPath }) => {
           emitProgress({ type: 'thinking', label: `COO delegating to ${agentKey}` });
 
           const specialist = createSwarmSpecialist(agentKey);
           const config = (specialist as any).config;
+          if (projectPath) config.projectPath = projectPath;
+
           const deptSessionId = `${runId}:${config.department.toLowerCase()}`;
 
           const result = await specialist.run(task, undefined, deptSessionId);
@@ -61,8 +81,9 @@ export async function createDigitalCorporationMain(runId: string = 'default') {
         description: 'Analyze a complex business objective and automatically route it to the best Department Head or specialist.',
         inputSchema: z.object({
           task: z.string().min(10).describe('The business objective (e.g., "Analyze why churn is increasing").'),
+          projectPath: z.string().optional().describe('Optional sandbox path for the agent to work in.'),
         }),
-        execute: async ({ task }) => {
+        execute: async ({ task, projectPath }) => {
           emitProgress({ type: 'thinking', label: 'COO classifying objective' });
           const classification = await orchestrator.classifyTask(task);
 
@@ -70,6 +91,8 @@ export async function createDigitalCorporationMain(runId: string = 'default') {
 
           const specialist = createSwarmSpecialist(classification.subagent);
           const config = (specialist as any).config;
+          if (projectPath) config.projectPath = projectPath;
+
           const deptSessionId = `${runId}:${config.department.toLowerCase()}`;
 
           const result = await specialist.run(task, undefined, deptSessionId);

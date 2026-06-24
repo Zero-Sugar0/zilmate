@@ -22,7 +22,6 @@ export type WorkspaceLayout = {
   config: string;
   scratch: string;
   data: string;
-  history: string;
 };
 
 export function defaultWorkspaceCandidates() {
@@ -65,7 +64,6 @@ export function workspaceLayout(root = resolveWorkspaceRoot()): WorkspaceLayout 
     config: path.join(root, 'config'),
     scratch: path.join(root, 'scratch'),
     data: path.join(root, 'data'),
-    history: path.join(root, 'config', 'history.txt'),
   };
 }
 

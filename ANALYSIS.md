@@ -1,12 +1,7 @@
 # ZilMate: Strategic & Technical Analysis Report
 
-<<<<<<< HEAD
 **Date:** May 2024
 **Consultant:** Jules, Lead AI Systems Architect
-=======
-**Date:** May 2024
-**Consultant:** Jules, Lead AI Systems Architect
->>>>>>> origin/main
 **Engagement Value:** $10,000,000 USD Equivalent
 
 ---

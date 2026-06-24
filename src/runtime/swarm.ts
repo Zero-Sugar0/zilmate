@@ -4,6 +4,7 @@ import { models } from '../config/models.js';
 import { limits } from '../safety/limits.js';
 import { ReportGenerator } from './swarm/reports.js';
 import { createComposioTools } from '../tools/composio.tool.js';
+import { getControlState } from '../tools/swarm-ops.tool.js';
 
 export type SwarmDepartment = 'Strategy' | 'Engineering' | 'Growth' | 'Revenue' | 'Operations' | 'Security' | 'Data';
 
@@ -13,6 +14,7 @@ export interface SwarmAgentConfig {
   instructions: string;
   tools: Record<string, Tool<any, any>>;
   composioToolkits?: string[]; // Optional specific toolkits for this agent
+  projectPath?: string; // Scoped working directory for this agent's task
 }
 
 export class SwarmAgent {
@@ -32,11 +34,12 @@ export class SwarmAgent {
       instructions: [
         `You are ${this.config.name}, in the ${this.config.department} department.`,
         `SESSION CONTEXT: Your current departmental session is "${deptRunId}".`,
+        this.config.projectPath ? `PROJECT FOLDER: You are assigned to work within "${this.config.projectPath}". Always create project assets here.` : '',
         this.config.instructions,
         `You have access to a vast array of external tools via Composio. Use them for real-world tasks.`,
         `MEMORY ISOLATION: Your scratchpad and notebooks are scoped to the ${this.config.department} department. You cannot see raw data from other departments unless it is shared by the COO.`,
         `When you complete a significant task or plan, use the updateStatusReport tool to document your work.`,
-      ].join('\n'),
+      ].filter(Boolean).join('\n'),
       tools: {
         ...this.config.tools,
         ...composioTools,
@@ -57,6 +60,14 @@ export class SwarmAgent {
   }
 
   async run(prompt: string, abortSignal?: AbortSignal, sessionId: string = 'default') {
+    // Check Operational Control State (Pause/Resume)
+    const deptRunId = `${sessionId}:${this.config.department.toLowerCase()}`;
+    const controlState = await getControlState(deptRunId);
+
+    if (controlState === 'PAUSED') {
+      return `[SUSPENDED] The ${this.config.department} department is currently PAUSED. Please resume it using the resumeDepartment tool before proceeding.`;
+    }
+
     if (!this.agent) {
       await this.init(sessionId);
     }
