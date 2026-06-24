@@ -1,7 +1,7 @@
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import PDFDocument from 'pdfkit';
-import { createWriteStream } from 'node:fs';
+import { createWriteStream, existsSync } from 'node:fs';
 import { workspaceLayout } from '../workspace/paths.js';
 import { marked } from 'marked';
 
@@ -22,12 +22,26 @@ const COLORS = {
   codeText: '#BE185D',  // Pink 700
 };
 
-const FONTS = {
+// System fonts for better Unicode support (Emojis, symbols)
+const SYSTEM_FONTS = {
+  regular: '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+  bold: '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
+  italic: '/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Oblique.ttf',
+  mono: '/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf',
+};
+
+// Fallback to standard PDF fonts if system fonts don't exist
+const FALLBACK_FONTS = {
   regular: 'Helvetica',
   bold: 'Helvetica-Bold',
   italic: 'Helvetica-Oblique',
   mono: 'Courier',
 };
+
+function getFont(type: keyof typeof SYSTEM_FONTS) {
+  if (existsSync(SYSTEM_FONTS[type])) return SYSTEM_FONTS[type];
+  return FALLBACK_FONTS[type];
+}
 
 export async function generatePdfDocument(input: PdfInput) {
   const outDir = path.join(workspaceLayout().outputs, 'pdf');
@@ -49,8 +63,15 @@ export async function generatePdfDocument(input: PdfInput) {
     const stream = createWriteStream(filePath);
     doc.pipe(stream);
 
+    const fonts = {
+        regular: getFont('regular'),
+        bold: getFont('bold'),
+        italic: getFont('italic'),
+        mono: getFont('mono'),
+    };
+
     // Header
-    doc.fontSize(24).font(FONTS.bold).fillColor(COLORS.primary).text(input.title, { align: 'left' });
+    doc.fontSize(24).font(fonts.bold).fillColor(COLORS.primary).text(input.title, { align: 'left' });
     doc.moveDown(0.5);
     doc.moveTo(54, doc.y).lineTo(541, doc.y).strokeColor(COLORS.accent).lineWidth(2).stroke();
     doc.moveDown(1.5);
@@ -63,21 +84,21 @@ export async function generatePdfDocument(input: PdfInput) {
         const continued = options.continued || !isLast;
 
         if (token.type === 'strong') {
-          doc.font(FONTS.bold).text(token.text, { continued });
+          doc.font(fonts.bold).text(token.text, { continued });
         } else if (token.type === 'em') {
-          doc.font(FONTS.italic).text(token.text, { continued });
+          doc.font(fonts.italic).text(token.text, { continued });
         } else if (token.type === 'codespan') {
-          doc.font(FONTS.mono).fillColor(COLORS.codeText).text(token.text, { continued });
-          doc.font(FONTS.regular).fillColor(COLORS.secondary);
+          doc.font(fonts.mono).fillColor(COLORS.codeText).text(token.text, { continued });
+          doc.font(fonts.regular).fillColor(COLORS.secondary);
         } else if (token.type === 'link') {
-          doc.font(FONTS.regular).fillColor(COLORS.accent).text(token.text, { continued, link: token.href, underline: true });
+          doc.font(fonts.regular).fillColor(COLORS.accent).text(token.text, { continued, link: token.href, underline: true });
           doc.fillColor(COLORS.secondary);
         } else if (token.type === 'br') {
           doc.text('\n', { continued });
         } else if (token.tokens) {
           renderInline(token.tokens, { continued });
         } else {
-          doc.font(FONTS.regular).text(token.text || token.raw || '', { continued });
+          doc.font(fonts.regular).text(token.text || token.raw || '', { continued });
         }
       });
     }
@@ -92,7 +113,7 @@ export async function generatePdfDocument(input: PdfInput) {
             const size = hSizes[token.depth - 1] || 11;
             doc.moveDown(0.5)
                .fontSize(size)
-               .font(FONTS.bold)
+               .font(fonts.bold)
                .fillColor(COLORS.primary)
                .text(token.text);
             doc.moveDown(0.2);
@@ -101,7 +122,7 @@ export async function generatePdfDocument(input: PdfInput) {
 
           case 'paragraph': {
             doc.fontSize(11)
-               .font(FONTS.regular)
+               .font(fonts.regular)
                .fillColor(COLORS.secondary);
             renderInline(token.tokens || []);
             doc.moveDown(0.8);
@@ -111,12 +132,11 @@ export async function generatePdfDocument(input: PdfInput) {
           case 'list': {
             token.items.forEach((item: any, idx: number) => {
               if (doc.y > 720) doc.addPage();
-              doc.fontSize(11).font(FONTS.regular).fillColor(COLORS.secondary);
+              doc.fontSize(11).font(fonts.regular).fillColor(COLORS.secondary);
               const prefix = token.ordered ? `${idx + 1}. ` : '• ';
               doc.text(prefix, { continued: true, indent: 12 });
 
               if (item.tokens) {
-                // List items can contain paragraphs or other blocks
                 for (const subToken of item.tokens) {
                   if (subToken.type === 'text' || subToken.type === 'paragraph') {
                     renderInline(subToken.tokens || []);
@@ -134,7 +154,7 @@ export async function generatePdfDocument(input: PdfInput) {
 
           case 'blockquote': {
             const startY = doc.y;
-            doc.fontSize(11).font(FONTS.italic).fillColor(COLORS.muted);
+            doc.fontSize(11).font(fonts.italic).fillColor(COLORS.muted);
             doc.text(token.text, { indent: 20 });
             const endY = doc.y;
             doc.moveTo(64, startY).lineTo(64, endY).strokeColor(COLORS.divider).lineWidth(2).stroke();
@@ -143,7 +163,7 @@ export async function generatePdfDocument(input: PdfInput) {
           }
 
           case 'code': {
-            doc.fontSize(10).font(FONTS.mono).fillColor(COLORS.secondary);
+            doc.fontSize(10).font(fonts.mono).fillColor(COLORS.secondary);
             const codeText = token.text;
             const height = doc.heightOfString(codeText) + 10;
 
