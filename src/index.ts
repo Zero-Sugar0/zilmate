@@ -58,7 +58,7 @@ const program = new Command();
 program
   .name('zilmate')
   .description('ZilMate Agent')
-  .version('1.7.5');
+  .version('1.7.6');
 
 program
   .command('welcome')
