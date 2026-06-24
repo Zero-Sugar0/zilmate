@@ -5,7 +5,7 @@ import { limits } from '../safety/limits.js';
 import { ReportGenerator } from './swarm/reports.js';
 import { createComposioTools } from '../tools/composio.tool.js';
 
-export type SwarmDepartment = 'Strategy' | 'Engineering' | 'Growth' | 'Revenue' | 'Operations' | 'Security' | 'Data';
+export type SwarmDepartment = 'Strategy' | 'Engineering' | 'Growth' | 'Operations' | 'Data';
 
 export interface SwarmAgentConfig {
   name: string;
@@ -24,24 +24,19 @@ export class SwarmAgent {
   async init(sessionId: string = 'default') {
     const composioTools = await createComposioTools(sessionId);
 
-    // Memory Namespacing: Every department has its own scoped runId
-    const deptRunId = `${sessionId}:${this.config.department.toLowerCase()}`;
-
     this.agent = new ToolLoopAgent({
       model: models.chat,
       instructions: [
         `You are ${this.config.name}, a specialist in the ${this.config.department} department.`,
-        `SESSION CONTEXT: Your current departmental session is "${deptRunId}".`,
         this.config.instructions,
-        `You have access to a vast array of external tools via Composio. Use them for real-world tasks.`,
-        `MEMORY ISOLATION: Your scratchpad and notebooks are scoped to the ${this.config.department} department. You cannot see raw data from other departments unless it is shared in the Global Notebook by the COO.`,
-        `When you complete a significant task or plan, use the updateStatusReport tool to document your work.`,
+        `You have access to a vast array of external tools via Composio. Use them for real-world tasks like Stripe payments, HubSpot CRM management, GitHub repository work, and more.`,
+        `When you complete a significant task or plan, use the updateStatusReport tool to document your work as an .md file.`,
       ].join('\n'),
       tools: {
         ...this.config.tools,
         ...composioTools,
         updateStatusReport: tool({
-          description: 'Update your departmental status report (.md file).',
+          description: 'Update your departmental status report (.md file). Use this to track what you are doing or what you have finished.',
           inputSchema: z.object({
             status: z.enum(['doing', 'done', 'planning']),
             content: z.string().min(10).describe('Detailed Markdown content of your progress or findings.'),
@@ -56,9 +51,9 @@ export class SwarmAgent {
     });
   }
 
-  async run(prompt: string, abortSignal?: AbortSignal, sessionId: string = 'default') {
+  async run(prompt: string, abortSignal?: AbortSignal) {
     if (!this.agent) {
-      await this.init(sessionId);
+      await this.init();
     }
     const result = await this.agent!.generate({
       prompt,
@@ -79,12 +74,10 @@ export type SwarmMessage = {
 export class SwarmOrchestrator {
   private static instance: SwarmOrchestrator;
   private departments: Map<string, string[]> = new Map([
-    ['strategy', ['productManager', 'marketAnalyst', 'uxResearcher']],
-    ['engineering', ['architect', 'fullStackCoder', 'qaEngineer', 'devopsSre', 'creativeDirector']],
-    ['growth', ['growthHacker', 'seoExpert', 'contentWriter', 'socialMediaManager', 'adsManager']],
-    ['revenue', ['enterpriseSales', 'channelManager', 'affiliateManager', 'contractAnalyst', 'revOps']],
-    ['operations', ['financeAnalyst', 'customerSuccess', 'legalCounsel', 'logisticsLead', 'hrRecruiter']],
-    ['security', ['redTeam', 'blueTeam', 'complianceOfficer', 'iamArchitect', 'incidentResponse']],
+    ['strategy', ['productManager', 'marketAnalyst']],
+    ['engineering', ['fullStackCoder', 'qaEngineer', 'devopsSre']],
+    ['growth', ['growthHacker', 'seoExpert', 'contentWriter', 'socialMediaManager', 'salesOps', 'adsManager']],
+    ['operations', ['financeAnalyst', 'customerSuccess', 'legalCounsel', 'hrRecruiter', 'logisticsLead']],
     ['data', ['dataScientist', 'biReporter']],
   ]);
 
@@ -102,7 +95,7 @@ export class SwarmOrchestrator {
     const { object } = await generateObject({
       model: models.manager,
       schema: z.object({
-        department: z.enum(['strategy', 'engineering', 'growth', 'revenue', 'operations', 'security', 'data', 'general']),
+        department: z.enum(['strategy', 'engineering', 'growth', 'operations', 'data', 'general']),
         subagent: z.string(),
         reasoning: z.string(),
       }),

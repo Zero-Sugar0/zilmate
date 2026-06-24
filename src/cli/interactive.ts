@@ -66,7 +66,6 @@ export async function startInteractiveChat(sessionId = 'default') {
   const runId = randomUUID();
   let voiceMode = false;
   let modelBrowser = { provider: undefined as string | undefined, page: 1 };
-  const layout = workspaceLayout();
 
   printWelcomeCard({
     cwd: process.cwd(),
