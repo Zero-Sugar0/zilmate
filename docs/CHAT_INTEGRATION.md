@@ -76,3 +76,33 @@ const job = await zilmate.createJob({
 *   **State Persistence:** ZilMate's `sessionId` ensures memory carries over across different platforms for the same user.
 *   **Proactive Awareness:** By leveraging `situationalAwarenessTools`, the agent can warn you in chat if a build fails or revenue drops.
 *   **Unified Brain:** You only need to update the ZilMate Manager logic in one place to improve all your chat bots simultaneously.
+
+## 5. CLI Usage (The "Terminal" Way)
+
+If you prefer using ZilMate directly in the terminal, it offers parity with the SDK features.
+
+### Interactive Mode
+To start a long-running, conversational session where the agent remembers the context:
+```bash
+# Uses the 'default' session
+zilmate talk
+
+# Uses a specific named session
+zilmate talk --session my-project-research
+```
+
+### One-Shot Commands
+For quick questions or tasks without entering an interactive shell:
+```bash
+# Conversational guide
+zilmate chat "How do I process a refund in ZiloShift?"
+
+# Full manager orchestration (for complex tasks)
+zilmate manager "Research the current repo and suggest a refactor for the auth logic."
+```
+
+### Shared State
+ZilMate CLI and SDK share the same workspace. If you run a task in the SDK with `sessionId: "alpha"`, you can resume it in the terminal using:
+```bash
+zilmate talk --session alpha
+```
