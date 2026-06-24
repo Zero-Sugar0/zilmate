@@ -10,7 +10,7 @@ import { createPostAgent } from './agents/post.agent.js';
 import { createDocsResearchAgent } from './agents/docs-research.agent.js';
 import { generateImageAsset, isImageSize } from './tools/image-generate.tool.js';
 import { startInteractiveChat } from './cli/interactive.js';
-import { runSetup, runVoiceSetup, setVoiceEnabled } from './cli/setup.js';
+import { runSetup, runVoiceSetup, runChatSetup, setVoiceEnabled } from './cli/setup.js';
 import { printError, printJson, printMarkdown, printProgress } from './cli/format.js';
 import { createTerminalConfirmation } from './cli/confirm.js';
 import { getComposioStatus } from './tools/composio.tool.js';
@@ -31,6 +31,7 @@ import { listVoiceDevices, printVoiceConfig, runTerminalVoiceLive, runVoiceAgent
 import { printVersionStatus, runSelfUpdate } from './cli/update.js';
 import { captureCameraCli, listCameraDevicesCli, runCameraDoctorCli } from './cli/camera.js';
 import { printModelBrowser } from './cli/models.js';
+import { startChatListener } from './cli/chat.js';
 
 type TextAgentFactory = () => { generate: (input: { prompt: string }) => Promise<{ text: string }> };
 
@@ -823,8 +824,51 @@ program
     }
   });
 
-program
+const chat = program
   .command('chat')
+  .description('Chat integrations');
+
+chat
+  .command('setup')
+  .option('-p, --path <file>', 'environment file to update', '.env')
+  .option('-f, --force', 'skip overwrite confirmations')
+  .option('--slack-bot-token <token>', 'Slack bot token')
+  .option('--slack-signing-secret <secret>', 'Slack signing secret')
+  .option('--telegram-bot-token <token>', 'Telegram bot token')
+  .option('--imessage-enabled <true|false>', 'enable iMessage')
+  .option('--imessage-local <true|false>', 'use local iMessage database (macOS only)')
+  .description('Configure Slack, Telegram, and iMessage for ZilMate')
+  .action(async (options: { path?: string; force?: boolean; slackBotToken?: string; slackSigningSecret?: string; telegramBotToken?: string; imessageEnabled?: string; imessageLocal?: string }) => {
+    try {
+      await runChatSetup({
+        ...(options.path !== undefined ? { path: options.path } : {}),
+        ...(options.force !== undefined ? { force: options.force } : {}),
+        ...(options.slackBotToken !== undefined ? { slackBotToken: options.slackBotToken } : {}),
+        ...(options.slackSigningSecret !== undefined ? { slackSigningSecret: options.slackSigningSecret } : {}),
+        ...(options.telegramBotToken !== undefined ? { telegramBotToken: options.telegramBotToken } : {}),
+        ...(options.imessageEnabled !== undefined ? { imessageEnabled: options.imessageEnabled } : {}),
+        ...(options.imessageLocal !== undefined ? { imessageLocal: options.imessageLocal } : {}),
+      });
+    } catch (error) {
+      printError(friendlyError(error));
+      process.exitCode = 1;
+    }
+  });
+
+chat
+  .command('listen')
+  .description('Start the Chat SDK listener for Slack, Telegram, iMessage')
+  .action(async () => {
+    try {
+      await startChatListener();
+    } catch (error) {
+      printError(friendlyError(error));
+      process.exitCode = 1;
+    }
+  });
+
+chat
+  .command('msg')
   .argument('<message...>', 'message to discuss')
   .description('One-shot natural dialogue about ZiloShift')
   .action(async (message: string[]) => {
