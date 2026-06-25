@@ -1,6 +1,6 @@
 import { tool } from 'ai';
 import { z } from 'zod';
-import { Daytona, type Sandbox } from '@daytonaio/sdk';
+import { Daytona, type Sandbox } from '@daytona/sdk';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { requestConfirmation } from '../runtime/confirm.js';
