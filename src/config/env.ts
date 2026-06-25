@@ -57,6 +57,9 @@ export type Env = {
   imessageLocal: boolean;
   imessageEnabled: boolean;
   chatIntegrationEnabled: boolean;
+  braveApiKey: string | undefined;
+  wolframAlphaAppId: string | undefined;
+  databaseUrl: string | undefined;
 };
 
 export const env: Env = {
@@ -101,6 +104,9 @@ export const env: Env = {
   imessageLocal: process.env.IMESSAGE_LOCAL === 'true',
   imessageEnabled: process.env.CHAT_IMESSAGE_ENABLED === 'true',
   chatIntegrationEnabled: process.env.CHAT_INTEGRATION_ENABLED === 'true',
+  braveApiKey: process.env.BRAVE_API_KEY,
+  wolframAlphaAppId: process.env.WOLFRAM_ALPHA_APP_ID,
+  databaseUrl: process.env.DATABASE_URL,
 };
 
 export function hasGatewayAuth() {

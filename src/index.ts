@@ -1,4 +1,5 @@
 ﻿#!/usr/bin/env node
+import { closeMCPClients } from './tools/mcp.tool.js';
 import { Command } from 'commander';
 import { generateText } from 'ai';
 import { requireGatewayAuth } from './config/env.js';
@@ -986,17 +987,26 @@ program
     }
   });
 
-if (process.argv.length <= 2) {
-  await initWorkspace().catch(() => undefined);
-  await startDefaultLauncher();
-} else {
-  await initWorkspace().catch(() => undefined);
-  await program.parseAsync(process.argv).catch((error) => {
-  printError(friendlyError(error));
-  process.exitCode = 1;
-  });
+
+async function main() {
+  if (process.argv.length <= 2) {
+    await initWorkspace().catch(() => undefined);
+    await startDefaultLauncher();
+    await closeMCPClients();
+  } else {
+    await initWorkspace().catch(() => undefined);
+    try {
+      await program.parseAsync(process.argv);
+      await closeMCPClients();
+    } catch (error) {
+      await closeMCPClients();
+      printError(friendlyError(error));
+      process.exitCode = 1;
+    }
+  }
 }
 
-
-
-
+main().catch((error) => {
+  printError(friendlyError(error));
+  process.exitCode = 1;
+});

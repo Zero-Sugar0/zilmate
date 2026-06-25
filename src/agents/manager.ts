@@ -20,6 +20,7 @@ import { emitProgress, type ProgressEvent, withProgressListener } from '../runti
 import { type ConfirmationHandler, withConfirmationHandler } from '../runtime/confirm.js';
 import { createScratchpadTools } from '../tools/scratchpad.tool.js';
 import { ziloDocsTools } from '../tools/zilo-docs.tool.js';
+import { createMCPTools, mcpManagementTools } from '../tools/mcp.tool.js';
 import { createComposioTools } from '../tools/composio.tool.js';
 import { memoryTools } from '../tools/memory.tool.js';
 import { triggerTools } from '../tools/triggers.tool.js';
@@ -131,6 +132,9 @@ function describeTool(name: string) {
     getWeather: 'Getting weather forecast',
     getForecast: 'Getting multi-day weather forecast',
     getCurrentLocation: 'Detecting location from IP',
+    addMCPServer: 'Adding MCP server',
+    listMCPServers: 'Listing MCP servers',
+    removeMCPServer: 'Removing MCP server',
   };
   return labels[name] || `Using ${name}`;
 }
@@ -208,6 +212,15 @@ function buildManagerInstructions() {
   });
 
   builder.addSection({
+    id: 'mcp',
+    content: [
+      'Use Model Context Protocol (MCP) tools for advanced reasoning, local infrastructure, and specialized utilities. MCP servers available by default include: sequential-thinking (for structured reasoning), memory (knowledge graph for persistent mental models), filesystem (high-performance local operations), git (deep repo intelligence), fetch (web content extraction), playwright (production-grade browser automation), and more.',
+      'When you need to handle complex mathematical or scientific queries, use wolfram-alpha (if configured). For database management, use sqlite or postgres (if configured). Use ffmpeg for media processing, pandoc for document conversion, and graphviz for diagram generation.',
+      'Use mcpManagementTools (addMCPServer, listMCPServers, removeMCPServer) to manage additional MCP server connections.',
+    ].join('\n'),
+  });
+
+  builder.addSection({
     id: 'composio',
     content: [
       'Use Composio tools for external app tasks such as GitHub, Gmail, Slack, Notion, Stripe, Supabase, and other connected-account actions. If a needed app is not connected, use Composio connection management and surface the connect link to the user.',
@@ -267,7 +280,7 @@ function buildManagerInstructions() {
     ].join('\n'),
   });
 
-  return builder.build(['composio', 'automation', 'system', 'specialists', 'workspace']);
+  return builder.build(['mcp', 'composio', 'automation', 'system', 'specialists', 'workspace']);
 }
 
 export async function createManagerAgent(runId: string = randomUUID(), options: { sessionId?: string } = {}) {
@@ -286,6 +299,7 @@ export async function createManagerAgent(runId: string = randomUUID(), options: 
   const finance = createFinanceAgent(runId);
   const scratchpadTools = createScratchpadTools(runId);
   const composioTools = await createComposioTools(options.sessionId || 'default');
+  const mcpTools = await createMCPTools();
 
   return new ToolLoopAgent({
     model: models.manager,
@@ -360,6 +374,8 @@ export async function createManagerAgent(runId: string = randomUUID(), options: 
       ...triggerTools,
       ...scratchpadTools,
       ...composioTools,
+      ...mcpTools,
+      ...mcpManagementTools,
       ...computerUseTools,
       ...shellTools,
       ...skillTools,

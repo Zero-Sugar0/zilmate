@@ -23,6 +23,7 @@ export type WorkspaceLayout = {
   scratch: string;
   data: string;
   history: string;
+  mcpConfig: string;
 };
 
 export function defaultWorkspaceCandidates() {
@@ -66,6 +67,7 @@ export function workspaceLayout(root = resolveWorkspaceRoot()): WorkspaceLayout 
     scratch: path.join(root, 'scratch'),
     data: path.join(root, 'data'),
     history: path.join(root, 'config', 'history.txt'),
+    mcpConfig: path.join(root, 'config', 'mcp-servers.json'),
   };
 }
 

@@ -6,9 +6,13 @@ import { limits } from '../../safety/limits.js';
 import { createSwarmSpecialist } from './registry.js';
 import { emitProgress } from '../../runtime/progress.js';
 import { crossAppLedgerTools } from '../../tools/cross-app-ledger.tool.js';
+import { createMCPTools } from '../../tools/mcp.tool.js';
+import { createComposioTools } from '../../tools/composio.tool.js';
 
 export async function createDigitalCorporationMain(runId: string = 'default') {
   const orchestrator = SwarmOrchestrator.getInstance();
+  const composioTools = await createComposioTools(runId);
+  const mcpTools = await createMCPTools();
 
   return new ToolLoopAgent({
     model: models.manager,
@@ -36,6 +40,8 @@ export async function createDigitalCorporationMain(runId: string = 'default') {
     ].join('\n'),
     tools: {
       ...crossAppLedgerTools,
+      ...composioTools,
+      ...mcpTools,
       delegateToSpecialist: tool({
         description: 'Delegate a business task to a specialized swarm agent in the corporation.',
         inputSchema: z.object({
