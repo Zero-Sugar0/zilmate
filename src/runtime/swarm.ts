@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { models } from '../config/models.js';
 import { limits } from '../safety/limits.js';
 import { ReportGenerator } from './swarm/reports.js';
+import { createMCPTools, closeMCPClients } from '../tools/mcp.tool.js';
 import { createComposioTools } from '../tools/composio.tool.js';
 
 export type SwarmDepartment = 'Strategy' | 'Engineering' | 'Growth' | 'Operations' | 'Data' | 'Security' | 'Revenue';
@@ -35,6 +36,7 @@ export class SwarmAgent {
 
   async init(sessionId: string = 'default') {
     const composioTools = await createComposioTools(sessionId);
+    const mcpTools = await createMCPTools();
 
     this.agent = new ToolLoopAgent({
       model: this.getDeptModel(),
@@ -47,6 +49,7 @@ export class SwarmAgent {
       tools: {
         ...this.config.tools,
         ...composioTools,
+        ...mcpTools,
         updateStatusReport: tool({
           description: 'Update your departmental status report (.md file). Use this to track what you are doing or what you have finished.',
           inputSchema: z.object({

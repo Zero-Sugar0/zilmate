@@ -20,6 +20,7 @@ import { emitProgress, type ProgressEvent, withProgressListener } from '../runti
 import { type ConfirmationHandler, withConfirmationHandler } from '../runtime/confirm.js';
 import { createScratchpadTools } from '../tools/scratchpad.tool.js';
 import { ziloDocsTools } from '../tools/zilo-docs.tool.js';
+import { createMCPTools, mcpManagementTools } from '../tools/mcp.tool.js';
 import { createComposioTools } from '../tools/composio.tool.js';
 import { memoryTools } from '../tools/memory.tool.js';
 import { triggerTools } from '../tools/triggers.tool.js';
@@ -131,6 +132,9 @@ function describeTool(name: string) {
     getWeather: 'Getting weather forecast',
     getForecast: 'Getting multi-day weather forecast',
     getCurrentLocation: 'Detecting location from IP',
+    addMCPServer: 'Adding MCP server',
+    listMCPServers: 'Listing MCP servers',
+    removeMCPServer: 'Removing MCP server',
   };
   return labels[name] || `Using ${name}`;
 }
@@ -286,6 +290,7 @@ export async function createManagerAgent(runId: string = randomUUID(), options: 
   const finance = createFinanceAgent(runId);
   const scratchpadTools = createScratchpadTools(runId);
   const composioTools = await createComposioTools(options.sessionId || 'default');
+  const mcpTools = await createMCPTools();
 
   return new ToolLoopAgent({
     model: models.manager,
@@ -360,6 +365,8 @@ export async function createManagerAgent(runId: string = randomUUID(), options: 
       ...triggerTools,
       ...scratchpadTools,
       ...composioTools,
+      ...mcpTools,
+      ...mcpManagementTools,
       ...computerUseTools,
       ...shellTools,
       ...skillTools,
