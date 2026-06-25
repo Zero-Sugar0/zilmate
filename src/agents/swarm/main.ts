@@ -1,4 +1,4 @@
-﻿import { type Tool, ToolLoopAgent, stepCountIs, tool } from 'ai';
+import { type Tool, ToolLoopAgent, stepCountIs, tool } from 'ai';
 import { z } from 'zod';
 import { SwarmOrchestrator } from '../../runtime/swarm.js';
 import { models } from '../../config/models.js';
@@ -8,6 +8,7 @@ import { emitProgress } from '../../runtime/progress.js';
 import { crossAppLedgerTools } from '../../tools/cross-app-ledger.tool.js';
 import { createMCPTools } from '../../tools/mcp.tool.js';
 import { createComposioTools } from '../../tools/composio.tool.js';
+import { executiveTools } from '../../tools/executive.tool.js';
 
 export async function createDigitalCorporationMain(runId: string = 'default') {
   const orchestrator = SwarmOrchestrator.getInstance();
@@ -23,18 +24,19 @@ export async function createDigitalCorporationMain(runId: string = 'default') {
 
       'MANAGEMENT PHILOSOPHY:',
       '1. DELEGATE, DON’T DO: Your primary role is routing and supervision. Assign tasks to specialists.',
-      '2. DATA-FIRST: Always use "correlateBusinessData" to get a unified view across Stripe, HubSpot, and GitHub before high-level planning.',
-      '3. SUPER TOOLS: Use "visualBrowserAudit" for UI verification, "autonomousMarketResearch" for competitor deep-dives, and "executeAndSelfHeal" for engineering builds.',
+      '2. DATA-FIRST: Always use "correlateBusinessData" or "getCorporateHealthBrief" to get a unified view across Stripe, HubSpot, and GitHub before high-level planning.',
+      '3. SUPER TOOLS: Use "visualBrowserAudit" for UI verification, "autonomousMarketResearch" for competitor deep-dives, and "executeAndSelfHeal" (via QA) for engineering builds.',
       '4. CHAINED EXECUTION: For complex goals, plan a sequence. Example: Architect designs -> Coder builds -> QA tests -> DevOps deploys.',
-      '4. ACCOUNTABILITY: Monitor the .md reports created by specialists. If an agent "stalls," re-evaluate the task or delegate to a different specialist.',
-      '5. SYNTHESIS: Provide the CEO (Manager) with a high-level "Corporate Health" summary after every departmental burst.',
+      '5. CRISIS MANAGEMENT: If a critical issue is detected, immediately use "triggerCrisisResponse" and delegate to specialists like "securityAuditor".',
+      '6. ACCOUNTABILITY: Monitor the .md reports created by specialists. If an agent "stalls," re-evaluate the task or delegate to a different specialist.',
+      '7. SYNTHESIS: Provide the CEO (Manager) with a high-level "Corporate Health" summary after every departmental burst.',
 
       'DEPARTMENTAL DOMAINS:',
       '- Strategy: CEO Orchestrator, Product Manager, Market Analyst, UX Researcher.',
-      '- Engineering: Architect, Full-Stack Coder, QA Engineer, DevOps SRE, Creative Director.',
+      '- Engineering: Architect, Full-Stack Coder, QA Engineer, DevOps SRE, Creative Director, Security Auditor.',
       '- Growth: Growth Hacker, SEO Expert, Content Writer, Social Media Manager, Ads Manager, Sales Ops.',
       '- Operations: Finance Analyst, Customer Success, Legal Counsel, Logistics Lead, HR Recruiter.',
-      '- Data: Data Scientist, BI Reporter.',
+      '- Data: Data Scientist, BI Reporter, Agent Optimizer.',
 
       'You have full authority to manage cross-departmental handoffs and ensure all specialists are aligned with business KPIs.',
     ].join('\n'),
@@ -42,6 +44,7 @@ export async function createDigitalCorporationMain(runId: string = 'default') {
       ...crossAppLedgerTools,
       ...composioTools,
       ...mcpTools,
+      ...executiveTools,
       delegateToSpecialist: tool({
         description: 'Delegate a business task to a specialized swarm agent in the corporation.',
         inputSchema: z.object({
