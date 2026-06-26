@@ -52,7 +52,7 @@ export async function startInteractiveChat(sessionId = 'default') {
   }
 
   const completer = (line: string): [string[], string] => {
-    const completions = ['/exit', '/quit', '/clear', '/help', '/voice', '/swarm', '/model', '/model pick', '/model next', '/heal', '/skills'];
+    const completions = ['/exit', '/quit', '/clear', '/help', '/voice', '/swarm', '/model', '/model pick', '/model next', '/heal', '/skills', '/mcp', '/mcp list', '/mcp add', '/mcp remove', '/mcp restart'];
     const hits = completions.filter((c) => c.startsWith(line));
     return [hits.length ? hits : completions, line];
   };
@@ -108,6 +108,7 @@ export async function startInteractiveChat(sessionId = 'default') {
         console.log(`  ${theme.brand('/model pick')} [query]  Choose models (filtered by provider)`);
         console.log(`  ${theme.brand('/model next')}  Next model page`);
         console.log(`  ${theme.brand('/skills')}      List installed agent skills`);
+        console.log(`  ${theme.brand('/mcp')}         Manage Model Context Protocol servers`);
         console.log(theme.muted('Tip: Use "\\" at the end of a line for simple multiline input.'));
         continue;
       }
@@ -180,6 +181,41 @@ export async function startInteractiveChat(sessionId = 'default') {
       if (message === '/voice -q' || message === '/voice off' || message === '/voice stop') {
         voiceMode = false;
         console.log(theme.muted('Voice mode off for this chat session.'));
+        continue;
+      }
+      if (message === '/mcp' || message.startsWith('/mcp ')) {
+        const parts = message.split(' ');
+        const sub = parts[1];
+        const { mcpManagementTools, closeMCPClients } = await import('../tools/mcp.tool.js');
+
+        if (!sub || sub === 'list') {
+          const result = await (mcpManagementTools.listMCPServers as any).execute({});
+          if (result.servers.length === 0) {
+            console.log(theme.muted('No MCP servers configured.'));
+          } else {
+            printTable(['Server', 'Type', 'Enabled', 'Active'], result.servers.map((s: any) => [s.name, s.type, s.enabled ? '✅' : '❌', s.active ? '🟢' : '⚪']));
+          }
+        } else if (sub === 'restart') {
+          await closeMCPClients();
+          console.log(theme.ok('MCP clients closed. They will restart on the next message.'));
+        } else if (sub === 'add') {
+          console.log(theme.muted('To add an MCP server, use the interactive "zilmate setup" or use the addMCPServer tool via agent.'));
+          console.log(theme.muted('Format: /mcp add <name> <type> <command/url> [args...]'));
+        } else if (sub === 'remove') {
+          const name = parts[2];
+          if (!name) {
+            console.log(theme.warn('Usage: /mcp remove <name>'));
+          } else {
+            const result = await (mcpManagementTools.removeMCPServer as any).execute({ name });
+            if (result.error) console.log(theme.error(result.error));
+            else console.log(theme.ok(result.status));
+          }
+        } else {
+          console.log(theme.textBright('MCP Commands'));
+          console.log(`  ${theme.brand('/mcp list')}      List servers`);
+          console.log(`  ${theme.brand('/mcp remove')}    Remove a server`);
+          console.log(`  ${theme.brand('/mcp restart')}   Close and reload clients`);
+        }
         continue;
       }
             if (message === '/skills') {

@@ -825,6 +825,40 @@ program
     }
   });
 
+const mcp = program
+  .command('mcp')
+  .description('Model Context Protocol (MCP) management');
+
+mcp
+  .command('list')
+  .description('List all configured MCP servers')
+  .action(async () => {
+    const { mcpManagementTools } = await import('./tools/mcp.tool.js');
+    const result = await (mcpManagementTools.listMCPServers as any).execute({});
+    const { printTable } = await import('./cli/format.js');
+    printTable(['Server', 'Type', 'Enabled', 'Active'], result.servers.map((s: any) => [s.name, s.type, s.enabled ? 'pass' : 'warn', s.active ? 'pass' : 'warn']));
+  });
+
+mcp
+  .command('remove')
+  .argument('<name>', 'name of the server to remove')
+  .description('Remove an MCP server')
+  .action(async (name: string) => {
+    const { mcpManagementTools } = await import('./tools/mcp.tool.js');
+    const result = await (mcpManagementTools.removeMCPServer as any).execute({ name });
+    if (result.error) console.error(result.error);
+    else console.log(result.status);
+
+mcp
+  .command('restart')
+  .description('Close all active MCP clients')
+  .action(async () => {
+    const { closeMCPClients } = await import('./tools/mcp.tool.js');
+    await closeMCPClients();
+    console.log('MCP clients closed.');
+  });
+  });
+
 const chat = program
   .command('chat')
   .description('Chat integrations');

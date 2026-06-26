@@ -1,6 +1,6 @@
 import { createMCPClient } from '@ai-sdk/mcp';
 import { Experimental_StdioMCPTransport } from '@ai-sdk/mcp/mcp-stdio';
-import { type Tool, tool } from 'ai';
+import { tool } from 'ai';
 import { z } from 'zod';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
@@ -25,7 +25,7 @@ export type MCPConfig = {
   servers: MCPServerConfig[];
 };
 
-const activeClients: Map<string, any> = new Map();
+const activeClients: Map<string, { client: any; tools: Record<string, any> }> = new Map();
 
 function getDefaultMCPServers(): MCPServerConfig[] {
   const layout = workspaceLayout();
@@ -57,7 +57,7 @@ function getDefaultMCPServers(): MCPServerConfig[] {
       name: 'git',
       type: 'stdio',
       command: 'npx',
-      args: ['-y', '@modelcontextprotocol/server-git'],
+      args: ['-y', 'git-mcp-server'],
       enabled: true
     },
     {
@@ -65,20 +65,20 @@ function getDefaultMCPServers(): MCPServerConfig[] {
       type: 'stdio',
       command: 'npx',
       args: ['-y', '@modelcontextprotocol/server-fetch'],
-      enabled: true
+      enabled: false // Disabled by default until we find a stable npm package
     },
     {
       name: 'playwright',
       type: 'stdio',
       command: 'npx',
-      args: ['-y', '@modelcontextprotocol/server-playwright'],
+      args: ['-y', '@playwright/mcp'],
       enabled: true
     },
     {
       name: 'brave-search',
       type: 'stdio',
       command: 'npx',
-      args: ['-y', '@modelcontextprotocol/server-brave-search'],
+      args: ['-y', '@brave/brave-search-mcp-server'],
       env: { BRAVE_API_KEY: process.env.BRAVE_API_KEY || '' },
       enabled: Boolean(process.env.BRAVE_API_KEY)
     },
@@ -86,7 +86,7 @@ function getDefaultMCPServers(): MCPServerConfig[] {
       name: 'wolfram-alpha',
       type: 'stdio',
       command: 'npx',
-      args: ['-y', '@modelcontextprotocol/server-wolfram-alpha'],
+      args: ['-y', 'wolfram-mcp'],
       env: { WOLFRAM_ALPHA_APP_ID: process.env.WOLFRAM_ALPHA_APP_ID || '' },
       enabled: Boolean(process.env.WOLFRAM_ALPHA_APP_ID)
     },
@@ -94,14 +94,14 @@ function getDefaultMCPServers(): MCPServerConfig[] {
       name: 'sqlite',
       type: 'stdio',
       command: 'npx',
-      args: ['-y', '@modelcontextprotocol/server-sqlite', path.join(layout.data, 'mcp.db')],
+      args: ['-y', 'mcp-server-sqlite', path.join(layout.data, 'mcp.db')],
       enabled: true
     },
     {
       name: 'postgres',
       type: 'stdio',
       command: 'npx',
-      args: ['-y', '@modelcontextprotocol/server-postgres'],
+      args: ['-y', '@henkey/postgres-mcp-server'],
       env: { DATABASE_URL: process.env.DATABASE_URL || '' },
       enabled: Boolean(process.env.DATABASE_URL)
     },
@@ -109,42 +109,21 @@ function getDefaultMCPServers(): MCPServerConfig[] {
       name: 'docker',
       type: 'stdio',
       command: 'npx',
-      args: ['-y', '@modelcontextprotocol/server-docker'],
+      args: ['-y', '@thelord/mcp-server-docker-npx'],
       enabled: true
     },
     {
       name: 'kubernetes',
       type: 'stdio',
       command: 'npx',
-      args: ['-y', '@modelcontextprotocol/server-kubernetes'],
-      enabled: true
-    },
-    {
-      name: 'ffmpeg',
-      type: 'stdio',
-      command: 'npx',
-      args: ['-y', '@modelcontextprotocol/server-ffmpeg'],
-      enabled: true
-    },
-    {
-      name: 'pandoc',
-      type: 'stdio',
-      command: 'npx',
-      args: ['-y', '@modelcontextprotocol/server-pandoc'],
-      enabled: true
-    },
-    {
-      name: 'graphviz',
-      type: 'stdio',
-      command: 'npx',
-      args: ['-y', '@modelcontextprotocol/server-graphviz'],
+      args: ['-y', 'mcp-server-kubernetes'],
       enabled: true
     },
     {
       name: 'obsidian',
       type: 'stdio',
       command: 'npx',
-      args: ['-y', '@modelcontextprotocol/server-obsidian'],
+      args: ['-y', 'obsidian-mcp-server'],
       enabled: true
     }
   ];
@@ -183,12 +162,18 @@ async function saveMCPConfig(config: MCPConfig) {
   await writeFile(layout.mcpConfig, JSON.stringify(config, null, 2));
 }
 
-export async function createMCPTools(): Promise<Record<string, Tool<any, any>>> {
+export async function createMCPTools(): Promise<Record<string, any>> {
   const config = await loadMCPConfig();
-  const allTools: Record<string, Tool<any, any>> = {};
+  const allTools: Record<string, any> = {};
 
   for (const server of config.servers) {
     if (!server.enabled) continue;
+
+    // Reuse existing client and tools if already active
+    if (activeClients.has(server.name)) {
+      Object.assign(allTools, activeClients.get(server.name)!.tools);
+      continue;
+    }
 
     try {
       emitProgress({ type: 'tool:start', label: `Initializing MCP server: ${server.name}` });
@@ -212,8 +197,8 @@ export async function createMCPTools(): Promise<Record<string, Tool<any, any>>> 
       }
 
       if (client) {
-        activeClients.set(server.name, client);
         const serverTools = await client.tools();
+        activeClients.set(server.name, { client, tools: serverTools });
         Object.assign(allTools, serverTools);
         emitProgress({ type: 'tool:end', label: `MCP server ready: ${server.name}`, detail: `${Object.keys(serverTools).length} tools loaded` });
       }
@@ -226,9 +211,9 @@ export async function createMCPTools(): Promise<Record<string, Tool<any, any>>> 
 }
 
 export async function closeMCPClients() {
-  for (const [name, client] of activeClients.entries()) {
+  for (const [name, entry] of activeClients.entries()) {
     try {
-      await client.close();
+      await entry.client.close();
     } catch (error) {
       console.error(`Failed to close MCP client ${name}:`, error);
     }
@@ -256,7 +241,7 @@ export const mcpManagementTools = {
       const newServer: MCPServerConfig = { ...params, enabled: true } as any;
       config.servers.push(newServer);
       await saveMCPConfig(config);
-      return { status: `MCP server "${params.name}" added successfully. You may need to restart the agent to use it.` };
+      return { status: `MCP server "${params.name}" added successfully. Use /mcp restart or restart the chat to activate.` };
     }
   }),
   listMCPServers: tool({
@@ -289,7 +274,7 @@ export const mcpManagementTools = {
       await saveMCPConfig(config);
       if (activeClients.has(name)) {
         try {
-          await activeClients.get(name).close();
+          await activeClients.get(name)!.client.close();
           activeClients.delete(name);
         } catch {}
       }

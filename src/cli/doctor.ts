@@ -12,6 +12,7 @@ import { getLocalDataRoot } from '../memory/local-store.js';
 import { cloudflareTunnelDoctor } from './tunnel.js';
 import { skillsRegistryDoctor } from '../skills/registry.js';
 import { checkDependency } from '../observability/doctor.js';
+import { mcpManagementTools } from '../tools/mcp.tool.js';
 
 export type DoctorStatus = 'pass' | 'warn' | 'fail';
 
@@ -255,6 +256,21 @@ export async function runDoctor(options: { live?: boolean; sessionId?: string } 
   }
 
   if (options.live) {
+    try {
+      const mcpResult = await (mcpManagementTools.listMCPServers as any).execute({});
+      const enabled = mcpResult.servers.filter((s: any) => s.enabled);
+      const active = mcpResult.servers.filter((s: any) => s.active);
+      checks.push({
+        name: 'MCP Servers',
+        status: enabled.length > 0 ? (active.length === enabled.length ? 'pass' : 'warn') : 'warn',
+        detail: enabled.length > 0
+          ? `${active.length}/${enabled.length} enabled servers are active`
+          : 'No MCP servers are enabled',
+      });
+    } catch (error) {
+      checks.push({ name: 'MCP Servers', status: 'fail', detail: String(error) });
+    }
+
     if (hasGatewayAuth()) {
       try {
         const availability = await getModelAvailability();

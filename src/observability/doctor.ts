@@ -1,6 +1,7 @@
-﻿import { execFile } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { emitProgress } from '../runtime/progress.js';
+import { createMCPTools } from '../tools/mcp.tool.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -15,6 +16,9 @@ export async function checkDependency(command: string): Promise<boolean> {
 }
 
 export async function runProactiveDoctor() {
+  // Proactively warm up MCP servers once per session
+  createMCPTools().catch(() => undefined);
+
   const dependencies = [
     { name: 'ffmpeg', critical: false },
     { name: 'nmap', critical: false },

@@ -6,7 +6,7 @@ import { limits } from '../../safety/limits.js';
 import { createSwarmSpecialist } from './registry.js';
 import { emitProgress } from '../../runtime/progress.js';
 import { crossAppLedgerTools } from '../../tools/cross-app-ledger.tool.js';
-import { createMCPTools } from '../../tools/mcp.tool.js';
+import { createMCPTools, mcpManagementTools } from '../../tools/mcp.tool.js';
 import { createComposioTools } from '../../tools/composio.tool.js';
 import { executiveTools } from '../../tools/executive.tool.js';
 
@@ -44,6 +44,7 @@ export async function createDigitalCorporationMain(runId: string = 'default') {
       ...crossAppLedgerTools,
       ...composioTools,
       ...mcpTools,
+      ...mcpManagementTools,
       ...executiveTools,
       delegateToSpecialist: tool({
         description: 'Delegate a business task to a specialized swarm agent in the corporation.',
