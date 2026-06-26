@@ -175,7 +175,7 @@ export async function createMCPTools(): Promise<Record<string, any>> {
       continue;
     }
 
-    try {
+        try {
       emitProgress({ type: 'tool:start', label: `Initializing MCP server: ${server.name}` });
 
       let client;
@@ -185,7 +185,12 @@ export async function createMCPTools(): Promise<Record<string, any>> {
           args: server.args || [],
           env: { ...process.env, ...server.env } as Record<string, string>,
         });
-        client = await createMCPClient({ transport });
+
+        // Use a race to prevent hanging on initialization
+        client = await Promise.race([
+          createMCPClient({ transport }),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout initializing MCP server')), 15000))
+        ]);
       } else if (server.type === 'http' || server.type === 'sse') {
         client = await createMCPClient({
           transport: {
@@ -197,14 +202,24 @@ export async function createMCPTools(): Promise<Record<string, any>> {
       }
 
       if (client) {
-        const serverTools = await client.tools();
+        // Also wrap tools() call in a timeout
+        const serverTools = await Promise.race([
+          (client as any).tools(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout fetching tools from MCP server')), 10000))
+        ]) as Record<string, any>;
+
         activeClients.set(server.name, { client, tools: serverTools });
         Object.assign(allTools, serverTools);
         emitProgress({ type: 'tool:end', label: `MCP server ready: ${server.name}`, detail: `${Object.keys(serverTools).length} tools loaded` });
       }
     } catch (error) {
       emitProgress({ type: 'tool:error', label: `MCP server failed: ${server.name}`, detail: String(error) });
-      console.error(`MCP server ${server.name} error:`, error);
+      console.error(`[MCP] ${server.name} error:`, error);
+      // Ensure we clean up any partially initialized client
+      if (activeClients.has(server.name)) {
+        try { await activeClients.get(server.name)?.client.close(); } catch {}
+        activeClients.delete(server.name);
+      }
     }
   }
 
