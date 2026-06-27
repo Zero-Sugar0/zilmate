@@ -445,6 +445,22 @@ function fmtMs(ms: number): string {
   return chalk.gray(`${(ms / 1000).toFixed(1)}s`);
 }
 
+function formatWorkedTime(ms: number): string {
+  const totalSeconds = Math.round(ms / 1000);
+  if (totalSeconds < 60) {
+    const secs = ms / 1000;
+    return `${secs.toFixed(1)}s`;
+  }
+
+  const mins = Math.floor(totalSeconds / 60);
+  const secs = totalSeconds % 60;
+
+  if (secs === 0) {
+    return `${mins}${mins === 1 ? 'min' : 'mins'}`;
+  }
+  return `${mins}m ${secs}s`;
+}
+
 function fmtElapsed(startMs: number): string {
   return fmtMs(Date.now() - startMs);
 }
@@ -560,8 +576,8 @@ function printProgressWithSticky(event: ProgressEvent) {
     stopThinkingTicker();
     logUpdate.clear();
     logUpdate.done();
-    const total = fmtMs(Date.now() - displayState.sessionStart);
-    console.log(chalk.green(`✔ ${event.label}`) + chalk.gray(`  (total ${total})`));
+    const worked = formatWorkedTime(Date.now() - displayState.sessionStart);
+    console.log(chalk.green(`✔ ${event.label}`) + chalk.gray(`  (worked for ${worked})`));
     // Reset session state
     displayState.activeSpecialist = null;
     displayState.activeDept = null;

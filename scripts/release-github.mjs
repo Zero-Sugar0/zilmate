@@ -12,7 +12,7 @@ const title = `ZilMate ${tag}`;
 
 const notes = `# ${title}
 
-ZilMate ${tag} — Critical hotfix for Vercel AI Gateway custom fetch client to resolve connection pool leaks, socket exhaustion, and SSL handshake errors that resulted in raw 'Gateway request failed' responses.
+ZilMate ${tag} — Suppress verbose dotenv environment injection status logs on startup, and format session-end duration using natural language phrases ("worked for 2mins" / "worked for 3m 20s" instead of "total 161.1s").
 
 ## Install
 
@@ -25,7 +25,9 @@ zilmate menu
 
 ## Highlights
 
-- **CRITICAL HOTFIX: Connection Pool & Socket Leak** — Fixed an architectural issue in our Vercel AI SDK gateway fetch wrapper that created a \`new Agent\` (separate connection pool) for every single HTTP request. We now instantiate a single, reused global Undici \`Agent\` dispatcher, completely resolving socket exhaustion, TCP reset drops, and SSL handshake failures (which previously caused intermittent raw \`Gateway request failed\` errors).
+- **Natural Session Duration Formatting** — Formats session-end duration using high-fidelity human-readable phrases such as \`worked for 2mins\` or \`worked for 3m 20s\` instead of the raw, second-based \`total 161.1s\`.
+- **Premium CLI Experience: Suppressed Env Logs** — Configured \`quiet: true\` across all \`.env\` loading calls inside \`src/config/env.ts\`. This suppresses verbose, distracting console output lines (such as \`◇ injected env (33) from .env...\` and \`tip: encrypted .env...\`) printed by modern \`dotenv\` on startup, achieving a beautifully clean, distraction-free terminal layout.
+- **Critical Hotfix: Socket Leak Mitigated** — Reuses a single global Undici \`Agent\` dispatcher in our custom Vercel AI SDK gateway fetch wrapper to completely resolve socket leaks, TCP reset drops, and SSL handshake failures (which previously caused intermittent raw \`Gateway request failed\` errors).
 - **TypeScript Type-Safety Compliance** — Adjusted the gateway setup options to spread the \`apiKey\` conditionally only when defined, fully satisfying strict compilation checks under \`exactOptionalPropertyTypes: true\`.
 - **SDK Upgrade: Composio Core & Vercel Integration** — Upgraded \`@composio/core\` to \`0.13.1\` and \`@composio/vercel\` to \`0.11.0\` globally to resolve CLI deprecation warnings and inherit upstream performance and tool registry fixes.
 - **Cloudflare Tunnel Auto-Setup** — Automated downloader and manager for \`cloudflared\` binary blobs across Windows, macOS, and Linux to power \`zilmate jobs listen --tunnel\` with zero manual setup.
