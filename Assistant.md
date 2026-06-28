@@ -1,6 +1,6 @@
 # ZilMate Assistant — Architecture & New Updates 🌌
 
-Welcome to the **ZilMate Assistant** handbook. This document describes the powerful advancements, architecture, and toolkits added across the **v1.10.x** release train (culminating in **v1.10.2**).
+Welcome to the **ZilMate Assistant** handbook. This document describes the powerful advancements, architecture, and toolkits added across the **v1.10.x** release train (culminating in **v1.10.3**).
 
 ---
 
@@ -97,3 +97,21 @@ Access all new features directly from your command line:
 | `zilmate talk` | Starts an interactive workspace conversation with the manager. | `--voice` |
 | `zilmate jobs` | Monitors and processes background workers and cron schedules. | `--worker`, `--listen` |
 | `zilmate apps` | Manages external integrations (GitHub, Slack, Discord, etc.). | `status`, `login` |
+
+---
+
+## ⚡ 6. Patch Release Polish (v1.10.3)
+
+We implemented critical UX and cognitive optimizations to enhance interactive CLI stability, upgrade the background self-learning model, and align coding delegates with corporate wiki databases.
+
+### 🔇 TTY Prompt Thinking Ticker Suppression
+*   **The Issue**: The global `thinkingTimer` background spinner (operating at an 80ms interval) continued printing re-draw sequences while `readline` was awaiting user confirmations or multi-select inputs. This corrupted checkbox displays and caused line misalignment in standard terminals.
+*   **The Solution**: Engineered `pauseThinkingTicker()` and `resumeThinkingTicker()` hooks inside [src/cli/format.ts](file:///c:/Users/mseyy/Downloads/zilo-manager/src/cli/format.ts) to gracefully pause background renders during active TTY prompts inside [src/cli/confirm.ts](file:///c:/Users/mseyy/Downloads/zilo-manager/src/cli/confirm.ts).
+
+### 🔄 Dual-Pronged Performance Optimization Loop
+*   **Offensive + Defensive Harvester**: Expanded the self-optimization compiler to capture both defensive guardrails (preventing compile-time and runtime failures) and offensive design accelerators (reusable patterns, prompt enhancements, and efficiency formulas).
+*   **Semantic Deduplication**: Upgraded the optimizer in [src/observability/optimizer.ts](file:///c:/Users/mseyy/Downloads/zilo-manager/src/observability/optimizer.ts) to pre-query active rules from the Wiki, prompting the LLM to only output net-new rules or updates to existing ones (`isUpdateOfExisting: true`), preventing guideline bloat.
+
+### 🧠 Semantic Corporate Wiki for Coding Subagents
+*   **Aligning Coding Delegates**: Equipped the internal `appBuilder` and `qaIntegration` subagents inside [src/agents/coding.agent.ts](file:///c:/Users/mseyy/Downloads/zilo-manager/src/agents/coding.agent.ts) with full corporate wiki tools (`queryCorporateWiki` and `publishToCorporateWiki`).
+*   **Unified Context Integration**: Subagents now fetch relational requirements, third-party schemas, and monetization guides dynamically before scaffolding code, guaranteeing architectural sync.
