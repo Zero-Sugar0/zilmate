@@ -1,15 +1,22 @@
-import { execFile } from 'node:child_process';
+import { execFile, exec } from 'node:child_process';
 import { promisify } from 'node:util';
 import { emitProgress } from '../runtime/progress.js';
 import { createMCPTools } from '../tools/mcp.tool.js';
 
 const execFileAsync = promisify(execFile);
+const execAsync = promisify(exec);
 
 export async function checkDependency(command: string): Promise<boolean> {
-  const probe = process.platform === 'win32' ? 'where.exe' : 'which';
   try {
-    await execFileAsync(probe, [command]);
-    return true;
+    const hasSpace = command.trim().includes(' ');
+    if (hasSpace) {
+      await execAsync(command, { timeout: 3000 });
+      return true;
+    } else {
+      const probe = process.platform === 'win32' ? 'where.exe' : 'which';
+      await execFileAsync(probe, [command]);
+      return true;
+    }
   } catch {
     return false;
   }

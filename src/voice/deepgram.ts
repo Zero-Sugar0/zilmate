@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { env, requireDeepgram } from '../config/env.js';
 import type { ZilMateVoiceConfig, ZilMateVoiceEvent, ZilMateVoiceSessionOptions, ZilMateVoiceSessionResult } from './types.js';
+import { models } from '../config/models.js';
 
 type DeepgramClient = {
   agent: () => DeepgramAgentConnection;
@@ -104,6 +105,30 @@ function voiceSettings() {
     listenProvider.smart_format = true;
   }
 
+  // Dynamically resolve think provider and model name from models.manager configuration
+  const managerModel = models.manager || 'openai/gpt-4o-mini';
+  const parts = managerModel.split('/');
+  let providerType = 'open_ai';
+  let modelName = 'gpt-4o-mini';
+
+  if (parts.length >= 2) {
+    const rawProvider = (parts[0] || '').toLowerCase();
+    modelName = parts.slice(1).join('/');
+    if (rawProvider === 'openai') {
+      providerType = 'open_ai';
+    } else if (rawProvider === 'google' || rawProvider === 'gemini') {
+      providerType = 'google';
+    } else if (rawProvider === 'anthropic') {
+      providerType = 'anthropic';
+    } else if (rawProvider === 'groq') {
+      providerType = 'groq';
+    } else {
+      providerType = rawProvider;
+    }
+  } else {
+    modelName = managerModel;
+  }
+
   return {
     audio: {
       input: {
@@ -123,8 +148,8 @@ function voiceSettings() {
       },
       think: {
         provider: {
-          type: 'open_ai',
-          model: 'gpt-4o-mini',
+          type: providerType,
+          model: modelName,
         },
         prompt: [
           'You are only the realtime voice transport for ZilMate.',

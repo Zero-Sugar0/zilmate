@@ -5,6 +5,9 @@ import { limits } from '../safety/limits.js';
 import { ReportGenerator } from './swarm/reports.js';
 import { createMCPTools, closeMCPClients } from '../tools/mcp.tool.js';
 import { createComposioTools } from '../tools/composio.tool.js';
+import { getCollaborateWithPeerTool } from '../tools/swarm-ops.tool.js';
+import { corporateWikiTools } from '../tools/corporate-wiki.tool.js';
+import { sandboxDevTools } from '../tools/sandbox-dev.tool.js';
 
 export type SwarmDepartment = 'Strategy' | 'Engineering' | 'Growth' | 'Operations' | 'Data' | 'Security' | 'Revenue' | 'Development';
 
@@ -48,11 +51,18 @@ export class SwarmAgent {
         this.config.instructions,
         `You have access to a vast array of external tools via Composio and advanced reasoning/infrastructure capabilities via MCP. Use them for real-world tasks like Stripe payments, HubSpot CRM management, GitHub repository work, and more.`,
         `When you complete a significant task or plan, use the updateStatusReport tool to document your work as an .md file.`,
+        `SWARM ADVANCED CAPABILITIES:`,
+        `1. CORPORATE WIKI: At the start of ANY task, run queryCorporateWiki to gain situational awareness of prior findings, schemas, or market analyses. When you complete a task, use publishToCorporateWiki to save critical intelligence/deliverables so other agents benefit.`,
+        `2. JOINT WAR ROOMS: Instead of escalating everything to the COO/Manager, use collaborateWithPeer to directly open a Joint War Room sub-thread with any other specialist (e.g. backendArchitect, frontendArchitect, qaEngineer) to solve cross-functional tasks or negotiate contracts.`,
+        `3. AUTONOMOUS SANDBOX RUNNER: If you are writing, patching, or verifying code or scripts, use executeSandboxDevLoop to run compilation and test suites, analyze errors, and self-heal your implementation in a fast local loop.`,
       ].join('\n'),
       tools: {
         ...this.config.tools,
         ...composioTools,
         ...mcpTools,
+        ...corporateWikiTools,
+        ...sandboxDevTools,
+        collaborateWithPeer: getCollaborateWithPeerTool(this.config.name),
         updateStatusReport: tool({
           description: 'Update your departmental status report (.md file). Use this to track what you are doing or what you have finished.',
           inputSchema: z.object({
@@ -101,16 +111,6 @@ export type SwarmMessage = {
 
 export class SwarmOrchestrator {
   private static instance: SwarmOrchestrator;
-  private departments: Map<string, string[]> = new Map([
-    ['strategy', ['productManager', 'marketAnalyst']],
-    ['engineering', ['fullStackCoder', 'qaEngineer', 'devopsSre']],
-    ['development', ['leadDeveloper', 'frontendArchitect', 'backendArchitect', 'databaseSpecialist', 'qaSecurityEngineer', 'devOpsBillingSpecialist', 'gameDeveloper', 'dataIntelligenceEngineer']],
-    ['growth', ['growthHacker', 'seoExpert', 'contentWriter', 'socialMediaManager', 'salesOps', 'adsManager']],
-    ['operations', ['financeAnalyst', 'customerSuccess', 'legalCounsel', 'hrRecruiter', 'logisticsLead']],
-    ['data', ['dataScientist', 'biReporter']],
-    ['security', ['securityAnalyst', 'redTeam', 'blueTeam']],
-    ['revenue', ['enterpriseSales', 'channelPartner', 'affiliateManager']],
-  ]);
 
   private constructor() {}
 
@@ -123,18 +123,32 @@ export class SwarmOrchestrator {
 
   async classifyTask(task: string): Promise<{ department: string; subagent: string; reasoning: string }> {
     const { generateObject } = await import('ai');
+    const { specialistRegistry } = await import('../agents/swarm/registry.js');
+
+    const departmentsMap = new Map<string, string[]>();
+    for (const [key, agent] of Object.entries(specialistRegistry)) {
+      const dept = agent.department.toLowerCase();
+      if (!departmentsMap.has(dept)) {
+        departmentsMap.set(dept, []);
+      }
+      departmentsMap.get(dept)!.push(key);
+    }
+
+    const availableDepts = Array.from(departmentsMap.keys());
+    const availableSubagents = Array.from(departmentsMap.values()).flat();
+
     const { object } = await generateObject({
       model: models.manager,
       schema: z.object({
-        department: z.enum(['strategy', 'engineering', 'development', 'growth', 'operations', 'data', 'security', 'revenue', 'general']),
-        subagent: z.string(),
-        reasoning: z.string(),
+        department: z.string().describe('The department name in lowercase.'),
+        subagent: z.string().describe('The registered specialist agent key.'),
+        reasoning: z.string().describe('Reasoning for choosing this department and specialist.'),
       }),
       prompt: `Analyze this business task and assign it to the most relevant department and subagent:
       Task: ${task}
 
-      Available Departments: ${Array.from(this.departments.keys()).join(', ')}
-      Available Subagents: ${Array.from(this.departments.values()).flat().join(', ')}`,
+      Available Departments: ${availableDepts.join(', ')}
+      Available Subagents: ${availableSubagents.join(', ')}`,
     });
 
     return object as any;

@@ -26,8 +26,8 @@ function parseJsonBlock(text: string) {
 }
 
 export async function classifyTriggerWithContext(event: IncomingTriggerPayload): Promise<TriggerClassification> {
-  const heuristicPlan = buildTriggerOrchestrationPlan(event);
   const policy = await getActiveTriggerPolicy();
+  const heuristicPlan = buildTriggerOrchestrationPlan(event, policy);
   const personal = await loadPersonalContext();
   const personalBlock = formatPersonalContextForPrompt(personal);
 
@@ -87,7 +87,8 @@ export async function classifyTriggerWithContext(event: IncomingTriggerPayload):
 
 export async function buildOrchestrationPlanWithRouting(event: IncomingTriggerPayload): Promise<TriggerOrchestrationPlan> {
   const classification = await classifyTriggerWithContext(event);
-  const plan = buildTriggerOrchestrationPlan(event);
+  const policy = await getActiveTriggerPolicy();
+  const plan = buildTriggerOrchestrationPlan(event, policy);
   plan.priority = classification.priority;
   plan.route = classification.route;
   plan.category = classification.category;

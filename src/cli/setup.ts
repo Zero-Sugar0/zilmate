@@ -14,6 +14,9 @@ import { initWorkspace } from '../workspace/init.js';
 import { workspaceLayout, resolveWorkspaceRoot } from '../workspace/paths.js';
 import { startCloudflareQuickTunnel, isCloudflaredAvailable, ensureCloudflared } from './tunnel.js';
 import { startJobWebhookServer } from '../jobs/webhook-server.js';
+import { Supermemory } from 'supermemory';
+import { Index } from '@upstash/vector';
+
 
 const execFileAsync = promisify(execFile);
 
@@ -69,6 +72,27 @@ async function verifyRedisCredentials(url: string, token: string): Promise<boole
   }
 }
 
+async function verifySupermemoryKey(key: string): Promise<boolean> {
+  try {
+    const client = new Supermemory({ apiKey: key });
+    await client.search.memories({ q: 'ping', limit: 1 });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function verifyUpstashVectorCredentials(url: string, token: string): Promise<boolean> {
+  try {
+    const index = new Index({ url, token });
+    await index.info();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+
 type SetupOptions = {
   path?: string;
   force?: boolean;
@@ -101,6 +125,16 @@ type SetupOptions = {
   chatEnabled?: string;
   imessageEnabled?: string;
   imessageLocal?: string;
+  awsAccessKeyId?: string;
+  awsSecretAccessKey?: string;
+  awsRegion?: string;
+  gcsProjectId?: string;
+  gcsKeyFilename?: string;
+  blobReadWriteToken?: string;
+  corporateWikiProvider?: string;
+  supermemoryApiKey?: string;
+  upstashVectorRestUrl?: string;
+  upstashVectorRestToken?: string;
 };
 
 const defaults = {
@@ -651,6 +685,78 @@ export async function runSetup(options: SetupOptions = {}) {
       }
     }
 
+    if (options.awsAccessKeyId) {
+      values.set('AWS_ACCESS_KEY_ID', options.awsAccessKeyId);
+      touchedKeys.add('AWS_ACCESS_KEY_ID');
+    }
+    if (options.awsSecretAccessKey) {
+      values.set('AWS_SECRET_ACCESS_KEY', options.awsSecretAccessKey);
+      touchedKeys.add('AWS_SECRET_ACCESS_KEY');
+    }
+    if (options.awsRegion) {
+      values.set('AWS_REGION', options.awsRegion);
+      touchedKeys.add('AWS_REGION');
+    }
+    if (options.gcsProjectId) {
+      values.set('GCS_PROJECT_ID', options.gcsProjectId);
+      touchedKeys.add('GCS_PROJECT_ID');
+    }
+    if (options.gcsKeyFilename) {
+      values.set('GOOGLE_APPLICATION_CREDENTIALS', options.gcsKeyFilename);
+      touchedKeys.add('GOOGLE_APPLICATION_CREDENTIALS');
+    }
+    if (options.blobReadWriteToken) {
+      values.set('BLOB_READ_WRITE_TOKEN', options.blobReadWriteToken);
+      touchedKeys.add('BLOB_READ_WRITE_TOKEN');
+    }
+
+    if (!options.yes && (!values.has('AWS_ACCESS_KEY_ID') || !values.has('GOOGLE_APPLICATION_CREDENTIALS') || !values.has('BLOB_READ_WRITE_TOKEN') || options.force)) {
+      if (await askSection(
+        rl,
+        'Cloud Storage Integration (S3, GCS, Vercel Blob)',
+        'Enable ZilMate to backup, restore, or store persistent files across AWS S3, Google Cloud Storage, or Vercel Blob.',
+        'Configure Cloud Storage now?',
+        false,
+      )) {
+        if (await askYesNo(rl, 'Configure AWS S3?', Boolean(values.get('AWS_ACCESS_KEY_ID')))) {
+          const awsId = options.awsAccessKeyId || await askRequiredSecret(rl, 'AWS_ACCESS_KEY_ID: ');
+          const awsSecret = options.awsSecretAccessKey || await askRequiredSecret(rl, 'AWS_SECRET_ACCESS_KEY: ');
+          const currentRegion = options.awsRegion || values.get('AWS_REGION') || 'us-east-1';
+          const awsRegion = options.awsRegion || ((await rl.question(`AWS_REGION (${currentRegion}): `)).trim() || currentRegion);
+          
+          values.set('AWS_ACCESS_KEY_ID', awsId);
+          values.set('AWS_SECRET_ACCESS_KEY', awsSecret);
+          values.set('AWS_REGION', awsRegion);
+          
+          touchedKeys.add('AWS_ACCESS_KEY_ID');
+          touchedKeys.add('AWS_SECRET_ACCESS_KEY');
+          touchedKeys.add('AWS_REGION');
+        }
+
+        if (await askYesNo(rl, 'Configure Google Cloud Storage?', Boolean(values.get('GOOGLE_APPLICATION_CREDENTIALS')))) {
+          const currentProject = options.gcsProjectId || values.get('GCS_PROJECT_ID') || '';
+          const gcsProj = options.gcsProjectId || ((await rl.question(`GCS_PROJECT_ID${currentProject ? ` (${currentProject})` : ''}: `)).trim() || currentProject);
+          const currentKeyFile = options.gcsKeyFilename || values.get('GOOGLE_APPLICATION_CREDENTIALS') || '';
+          const gcsKey = options.gcsKeyFilename || ((await rl.question(`GOOGLE_APPLICATION_CREDENTIALS (path to key file)${currentKeyFile ? ` (${currentKeyFile})` : ''}: `)).trim() || currentKeyFile);
+          
+          if (gcsProj) {
+            values.set('GCS_PROJECT_ID', gcsProj);
+            touchedKeys.add('GCS_PROJECT_ID');
+          }
+          if (gcsKey) {
+            values.set('GOOGLE_APPLICATION_CREDENTIALS', gcsKey);
+            touchedKeys.add('GOOGLE_APPLICATION_CREDENTIALS');
+          }
+        }
+
+        if (await askYesNo(rl, 'Configure Vercel Blob?', Boolean(values.get('BLOB_READ_WRITE_TOKEN')))) {
+          const blobToken = options.blobReadWriteToken || await askRequiredSecret(rl, 'BLOB_READ_WRITE_TOKEN: ');
+          values.set('BLOB_READ_WRITE_TOKEN', blobToken);
+          touchedKeys.add('BLOB_READ_WRITE_TOKEN');
+        }
+      }
+    }
+
     const installCameraDeps = options.installCameraDeps === undefined ? undefined : normalizeBooleanOption(options.installCameraDeps);
     if (!options.yes && installCameraDeps === undefined) {
       console.log(chalk.cyan('\nDesktop camera'));
@@ -705,6 +811,94 @@ export async function runSetup(options: SetupOptions = {}) {
         }
       }
     }
+    
+    // Unified Corporate Wiki Configuration
+    if (options.corporateWikiProvider) {
+      values.set('CORPORATE_WIKI_PROVIDER', options.corporateWikiProvider);
+      touchedKeys.add('CORPORATE_WIKI_PROVIDER');
+      if (options.supermemoryApiKey) {
+        values.set('SUPERMEMORY_API_KEY', options.supermemoryApiKey);
+        touchedKeys.add('SUPERMEMORY_API_KEY');
+      }
+      if (options.upstashVectorRestUrl && options.upstashVectorRestToken) {
+        values.set('UPSTASH_VECTOR_REST_URL', options.upstashVectorRestUrl);
+        values.set('UPSTASH_VECTOR_REST_TOKEN', options.upstashVectorRestToken);
+        touchedKeys.add('UPSTASH_VECTOR_REST_URL');
+        touchedKeys.add('UPSTASH_VECTOR_REST_TOKEN');
+      }
+    } else if (!options.yes && (!values.has('CORPORATE_WIKI_PROVIDER') || options.force)) {
+      if (await askSection(
+        rl,
+        'Unified Corporate Wiki Memory',
+        'Configure a shared vector database (SuperMemory or Upstash Vector) for specialist collaboration. Falls back to a local JSON database if skipped.',
+        'Configure Corporate Wiki now?',
+        true,
+      )) {
+        console.log(chalk.gray('\nSelect Corporate Wiki Provider:'));
+        console.log(chalk.gray('  1) local-file (Default fallback, zero config)'));
+        console.log(chalk.gray('  2) supermemory (Persistent cloud memory)'));
+        console.log(chalk.gray('  3) upstash (Durable Upstash Vector DB)'));
+
+        const choice = (await rl.question('Enter choice (1-3, default: 1): ')).trim();
+        if (choice === '2') {
+          values.set('CORPORATE_WIKI_PROVIDER', 'supermemory');
+          touchedKeys.add('CORPORATE_WIKI_PROVIDER');
+          while (true) {
+            const key = await askRequiredSecret(rl, 'SUPERMEMORY_API_KEY: ');
+            process.stdout.write(chalk.gray('Verifying SuperMemory API key... '));
+            const ok = await verifySupermemoryKey(key);
+            if (ok) {
+              console.log(chalk.green('✅ Verified!'));
+              values.set('SUPERMEMORY_API_KEY', key);
+              touchedKeys.add('SUPERMEMORY_API_KEY');
+              break;
+            } else {
+              console.log(chalk.red('❌ Verification failed.'));
+              const retry = await askYesNo(rl, 'The key appears to be invalid or there was a network error. Re-enter?', true);
+              if (!retry) {
+                values.set('SUPERMEMORY_API_KEY', key);
+                touchedKeys.add('SUPERMEMORY_API_KEY');
+                break;
+              }
+            }
+          }
+        } else if (choice === '3') {
+          values.set('CORPORATE_WIKI_PROVIDER', 'upstash');
+          touchedKeys.add('CORPORATE_WIKI_PROVIDER');
+          while (true) {
+            const url = await askRequiredSecret(rl, 'UPSTASH_VECTOR_REST_URL: ');
+            const token = await askRequiredSecret(rl, 'UPSTASH_VECTOR_REST_TOKEN: ');
+            process.stdout.write(chalk.gray('Verifying Upstash Vector connection... '));
+            const ok = await verifyUpstashVectorCredentials(url, token);
+            if (ok) {
+              console.log(chalk.green('✅ Connected successfully!'));
+              values.set('UPSTASH_VECTOR_REST_URL', url);
+              values.set('UPSTASH_VECTOR_REST_TOKEN', token);
+              touchedKeys.add('UPSTASH_VECTOR_REST_URL');
+              touchedKeys.add('UPSTASH_VECTOR_REST_TOKEN');
+              break;
+            } else {
+              console.log(chalk.red('❌ Connection failed.'));
+              const retry = await askYesNo(rl, 'Connection failed. Re-enter Upstash Vector credentials?', true);
+              if (!retry) {
+                values.set('UPSTASH_VECTOR_REST_URL', url);
+                values.set('UPSTASH_VECTOR_REST_TOKEN', token);
+                touchedKeys.add('UPSTASH_VECTOR_REST_URL');
+                touchedKeys.add('UPSTASH_VECTOR_REST_TOKEN');
+                break;
+              }
+            }
+          }
+        } else {
+          values.set('CORPORATE_WIKI_PROVIDER', 'local-file');
+          touchedKeys.add('CORPORATE_WIKI_PROVIDER');
+          console.log(chalk.green('Selected Local File fallback.'));
+        }
+      } else {
+        values.set('CORPORATE_WIKI_PROVIDER', 'local-file');
+        touchedKeys.add('CORPORATE_WIKI_PROVIDER');
+      }
+    }
 
     await writeEnvValues(envPath, values, { merge: mergeMode, touchedKeys });
     console.log(chalk.green(`Saved ${envPath}.`));
@@ -714,11 +908,19 @@ export async function runSetup(options: SetupOptions = {}) {
       ['Tavily', values.get('TAVILY_API_KEY') ? 'configured' : 'skipped'],
       ['Redis', values.get('UPSTASH_REDIS_REST_URL') && values.get('UPSTASH_REDIS_REST_TOKEN') ? 'configured' : 'local fallback'],
       ['Jobs', values.get('ZILMATE_JOBS_ENABLED') === 'true' ? 'enabled' : 'disabled'],
+      ['Corporate Wiki', values.get('CORPORATE_WIKI_PROVIDER') || 'local fallback'],
       ['QStash', values.get('UPSTASH_QSTASH_TOKEN') && values.get('ZILMATE_PUBLIC_JOB_WEBHOOK_URL') ? 'configured' : 'local schedules only'],
       ['Workspace', values.get('ZILMATE_WORKSPACE') || workspaceLayout().root],
       ['Trigger workflows', values.get('ZILMATE_TRIGGER_WORKFLOWS_ENABLED') === 'true' ? 'enabled' : 'disabled'],
       ['Voice', values.get('ZILMATE_VOICE_ENABLED') === 'true' ? values.get('DEEPGRAM_API_KEY') ? 'enabled' : 'enabled, missing Deepgram key' : 'disabled'],
       ['Chat', values.get('CHAT_INTEGRATION_ENABLED') === 'true' ? 'enabled' : 'disabled'],
+      ['Cloud Storage', (() => {
+        const provs: string[] = [];
+        if (values.get('AWS_ACCESS_KEY_ID') && values.get('AWS_SECRET_ACCESS_KEY')) provs.push('S3');
+        if (values.get('GCS_PROJECT_ID') && values.get('GOOGLE_APPLICATION_CREDENTIALS')) provs.push('GCS');
+        if (values.get('BLOB_READ_WRITE_TOKEN')) provs.push('Vercel Blob');
+        return provs.length > 0 ? provs.join(', ') : 'disabled';
+      })()],
       ['Camera', await commandExists('ffmpeg') ? 'ready' : 'needs ffmpeg'],
       ['Tunnel', await isCloudflaredAvailable() ? 'ready' : 'needs cloudflared'],
     ]);

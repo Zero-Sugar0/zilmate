@@ -25,7 +25,7 @@ The GitHub project can remain `zilo-manager`, but the installable npm package an
 
 ## 🚀 Key Features & Capabilities
 
-- **Hierarchical Swarm Architecture** — Powered by a Manager Agent (CEO) that delegates to a Digital Corporation (COO), coordinating 7 Departments and 30+ Specialized Subagents for precise, high-fidelity business planning.
+- **Hierarchical Swarm Architecture** — Powered by a Manager Agent (CEO) that delegates to a Digital Corporation (COO), coordinating 30+ specialized subagents across 6 key business departments on a horizontal peer-to-peer messaging fabric. See the complete [SWARM.md](file:///c:/Users/mseyy/Downloads/zilo-manager/SWARM.md) blueprint.
 - **Zero-Config Webhook Tunneling** — Automates background webhook listeners using **Upstash QStash**. Features a built-in automated **Cloudflare Tunnel** binary (`cloudflared`) downloader for platform-specific runtimes (`windows`, `macOS`, `linux`).
 - **Interactive Safety Checklists** — Replaced basic text prompts with a premium interactive terminal UI (in TTY). Navigate via arrow keys and toggle checkboxes to filter and approve critical system and write-like app actions.
 - **Bottom-Pinned Thinking Status Card** — High-feedback console loaders and elapsed timers remain perfectly pinned to the bottom of the console whileSpecialist logs scroll smoothly above them.
@@ -326,7 +326,9 @@ export async function POST(req: Request) {
 
 ## 🏛️ Swarm Departmental Architecture
 
-ZilMate organizes complex business pipelines by splitting responsibilities among **7 Departments** and **30+ Specialists**:
+ZilMate organizes complex business pipelines by splitting responsibilities among 30+ specialists across 6 key departments. By deploying a horizontal active peer-to-peer messaging fabric, the swarm can coordinate actions and negotiate schemas directly. For a deep-dive into specialist instructions, toolkits, and communication protocols, see the comprehensive [SWARM.md](file:///c:/Users/mseyy/Downloads/zilo-manager/SWARM.md) document.
+
+ZilMate’s core corporate structure is represented below:
 
 ```text
 💼 Supervisor Manager (CEO)

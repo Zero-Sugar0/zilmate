@@ -55,3 +55,54 @@ export const swarmOpsTools = {
     },
   }),
 };
+
+/**
+ * Peer-to-Peer Message Bus factory tool.
+ * Dynamically launches a peer specialist in a Joint War Room sub-thread.
+ */
+export function getCollaborateWithPeerTool(callingAgentName: string) {
+  return tool({
+    description: 'Invite a peer specialist agent from the digital corporation swarm to a collaborative "Joint War Room" thread to solve cross-functional tasks or negotiate payload contracts directly without involving the COO.',
+    inputSchema: z.object({
+      peerKey: z.string().describe("The key of the specialist peer to collaborate with (e.g., 'frontendArchitect', 'backendArchitect', 'qaEngineer', 'creativeDirector', 'marketAnalyst', 'seoExpert', 'fullStackCoder')."),
+      task: z.string().describe('Describe the task/problem to collaborate on. Be specific and clear about what you need from them.'),
+      context: z.string().optional().describe('Optional context (e.g., API schemas, file contents, error logs, or code blocks) to share with the peer.'),
+    }),
+    execute: async ({ peerKey, task, context }) => {
+      emitProgress({ type: 'step', label: `Joint War Room: ${callingAgentName} invited ${peerKey}` });
+      
+      const { specialistRegistry } = await import('../agents/swarm/registry.js');
+      const { SwarmAgent } = await import('../runtime/swarm.js');
+      
+      const peerConfig = specialistRegistry[peerKey];
+      if (!peerConfig) {
+        throw new Error(`Specialist peer with key "${peerKey}" was not found in the corporation registry. Available peers: ${Object.keys(specialistRegistry).join(', ')}`);
+      }
+      
+      // Instantiate and run the peer agent in their own context
+      const peerAgent = new SwarmAgent(peerConfig);
+      await peerAgent.init();
+      
+      const prompt = `[JOINT WAR ROOM COLLABORATION]
+You have been invited by your peer ${callingAgentName} to a Joint War Room to collaborate on a task.
+
+Sender: ${callingAgentName}
+Task: ${task}
+
+Shared Context / Inputs:
+${context || 'None provided'}
+
+Please analyze the request, use your specialized tools to investigate or complete the task, and provide a clear, comprehensive report or resolution back to your peer.`;
+
+      const response = await peerAgent.run(prompt);
+      
+      emitProgress({ type: 'step', label: `Joint War Room: ${peerKey} delivered collaboration report to ${callingAgentName}` });
+      return {
+        sender: callingAgentName,
+        recipient: peerKey,
+        task,
+        responseReport: response,
+      };
+    }
+  });
+}

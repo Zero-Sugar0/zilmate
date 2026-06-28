@@ -13,6 +13,8 @@ import { limits } from '../safety/limits.js';
 import { emitProgress } from '../runtime/progress.js';
 import { createComposioTools } from '../tools/composio.tool.js';
 import { createMCPTools } from '../tools/mcp.tool.js';
+import { devopsTools } from '../tools/devops.tool.js';
+import { cloudTools } from '../tools/cloud.tool.js';
 
 async function createAppBuilderAgent(runId = 'default') {
   const scratchpadTools = createScratchpadTools(`${runId}:app-builder`);
@@ -51,6 +53,8 @@ async function createAppBuilderAgent(runId = 'default') {
     ].join('\n'),
     tools: {
       ...timeTools,
+      ...devopsTools,
+      ...cloudTools,
       ...fileSystemTools,
       ...codeIntelligenceTools,
       ...shellTools,
@@ -84,6 +88,8 @@ async function createQaIntegrationAgent(runId = 'default') {
     ].join('\n'),
     tools: {
       ...timeTools,
+      ...devopsTools,
+      ...cloudTools,
       ...gitTools,
       ...codeIntelligenceTools,
       ...fileSystemTools,
@@ -150,6 +156,8 @@ export async function createCodingAgent(runId = 'default') {
       appBuilder: codingDelegateTool('appBuilder', 'Delegate full app, game, software, Vite, Next.js, UI, or end-to-end implementation work to the internal app builder.', appBuilder),
       qaIntegration: codingDelegateTool('qaIntegration', 'Delegate testing, debugging, build fixes, integration checks, and release-readiness verification to the internal QA/integration builder.', qaBuilder),
       ...timeTools,
+      ...devopsTools,
+      ...cloudTools,
       ...gitTools,
       ...codeIntelligenceTools,
       ...fileSystemTools,

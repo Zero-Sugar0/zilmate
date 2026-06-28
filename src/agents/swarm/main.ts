@@ -37,7 +37,7 @@ export async function createDigitalCorporationMain(runId: string = 'default') {
       'DEPARTMENTAL DOMAINS:',
       '- Strategy: CEO Orchestrator, Product Manager, Market Analyst, UX Researcher.',
       '- Engineering: Architect, Full-Stack Coder, QA Engineer, DevOps SRE, Creative Director, Security Auditor.',
-      '- Development: Lead Developer, Frontend Architect, Backend Architect, Database Specialist, QA & Security Engineer, DevOps & Billing Specialist, Game Developer, Data Intelligence Engineer.',
+      '- Development: Lead Developer, Frontend Architect, Backend Architect, Database Specialist, QA & Security Engineer, DevOps & Billing Specialist, Game Developer, Data Intelligence Engineer, API Integrator, Mobile Developer, Site Reliability Engineer, Auth & Billing Specialist.',
       '- Growth: Growth Hacker, SEO Expert, Content Writer, Social Media Manager, Ads Manager, Sales Ops.',
       '- Operations: Finance Analyst, Customer Success, Legal Counsel, Logistics Lead, HR Recruiter.',
       '- Data: Data Scientist, BI Reporter, Agent Optimizer.',

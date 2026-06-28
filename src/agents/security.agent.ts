@@ -7,6 +7,7 @@ import { osintTools } from '../tools/osint.tool.js';
 import { osintInstallTools } from '../tools/osint-install.tool.js';
 import { pentestTools } from '../tools/pentest.tool.js';
 import { pentestInstallTools } from '../tools/pentest-install.tool.js';
+import { sysopsTools } from '../tools/sysops.tool.js';
 
 export function createSecurityAgent(runId = 'default') {
   const scratchpadTools = createScratchpadTools(runId);
@@ -68,6 +69,9 @@ export function createSecurityAgent(runId = 'default') {
     tools: {
       // Time awareness
       ...timeTools,
+
+      // System / network profiling
+      ...sysopsTools,
 
       // OSINT install & check
       ...osintInstallTools,

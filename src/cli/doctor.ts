@@ -16,6 +16,8 @@ import { skillsRegistryDoctor } from '../skills/registry.js';
 import { checkDependency } from '../observability/doctor.js';
 import { mcpManagementTools } from '../tools/mcp.tool.js';
 import { confirmPrompt } from './prompt.js';
+import { queryWiki } from '../memory/corporate-wiki.js';
+
 
 export type DoctorStatus = 'pass' | 'warn' | 'fail';
 
@@ -73,6 +75,13 @@ export function getConfigSummary() {
       slackToken: Boolean(env.slackBotToken),
       telegramToken: Boolean(env.telegramBotToken),
       imessageLocal: env.imessageLocal,
+      awsS3: Boolean(env.awsAccessKeyId && env.awsSecretAccessKey),
+      gcs: Boolean(env.gcsProjectId && env.gcsKeyFilename),
+      vercelBlob: Boolean(env.blobReadWriteToken),
+      corporateWikiProvider: env.corporateWikiProvider,
+      supermemoryApiKey: Boolean(env.supermemoryApiKey),
+      upstashVectorUrl: Boolean(env.upstashVectorRestUrl),
+      upstashVectorToken: Boolean(env.upstashVectorRestToken),
     },
     memory: {
       backend: memoryBackendName(),
@@ -244,6 +253,73 @@ export async function runDoctor(options: { live?: boolean; sessionId?: string; i
     detail: hasRembg ? 'rembg is available' : 'Run: pip install rembg',
   });
 
+  const hasDocker = await checkDependency('docker').catch(() => false);
+  checks.push({
+    name: 'Docker (DevOps)',
+    status: hasDocker ? 'pass' : 'warn',
+    detail: hasDocker ? 'Docker is available' : 'Docker is not installed or running; some DevOps tools will be unavailable.',
+  });
+
+  const hasFfmpeg = await checkDependency('ffmpeg').catch(() => false);
+  checks.push({
+    name: 'FFmpeg (Multimedia)',
+    status: hasFfmpeg ? 'pass' : 'warn',
+    detail: hasFfmpeg ? 'FFmpeg is available' : 'FFmpeg is not installed; video, audio, and image watermark tools will be disabled.',
+  });
+
+  const hasSqlite = await checkDependency('sqlite3').catch(() => false);
+  checks.push({
+    name: 'SQLite (Database)',
+    status: hasSqlite ? 'pass' : 'warn',
+    detail: hasSqlite ? 'SQLite3 CLI is available' : 'SQLite3 CLI is not installed; database query tools will fall back to Python.',
+  });
+
+  const cloudProviders: string[] = [];
+  let cloudStatus: 'pass' | 'warn' = 'warn';
+  if (env.awsAccessKeyId && env.awsSecretAccessKey) cloudProviders.push('AWS S3');
+  if (env.gcsProjectId && env.gcsKeyFilename) cloudProviders.push('Google Cloud Storage');
+  if (env.blobReadWriteToken) cloudProviders.push('Vercel Blob');
+
+  if (cloudProviders.length > 0) {
+    cloudStatus = 'pass';
+  }
+  checks.push({
+    name: 'Cloud Storage',
+    status: cloudStatus,
+    detail: cloudProviders.length > 0
+      ? `Configured providers: ${cloudProviders.join(', ')}`
+      : 'No cloud storage providers are configured (S3, GCS, or Vercel Blob)',
+  });
+
+  const wikiProvider = env.corporateWikiProvider || (env.supermemoryApiKey ? 'supermemory' : env.upstashVectorRestUrl ? 'upstash' : 'local-file');
+  let wikiStatus: 'pass' | 'warn' | 'fail' = 'pass';
+  let wikiDetail = '';
+
+  if (wikiProvider === 'supermemory') {
+    if (env.supermemoryApiKey) {
+      wikiDetail = 'SuperMemory is configured';
+    } else {
+      wikiStatus = 'fail';
+      wikiDetail = 'SuperMemory is selected but SUPERMEMORY_API_KEY is missing';
+    }
+  } else if (wikiProvider === 'upstash') {
+    if (env.upstashVectorRestUrl && env.upstashVectorRestToken) {
+      wikiDetail = 'Upstash Vector is configured';
+    } else {
+      wikiStatus = 'fail';
+      wikiDetail = 'Upstash Vector is selected but REST URL or token is missing';
+    }
+  } else {
+    wikiStatus = 'warn';
+    wikiDetail = 'Using local JSON database fallback (local-file); configure SuperMemory or Upstash Vector for collaborative memory';
+  }
+
+  checks.push({
+    name: 'Corporate Wiki',
+    status: wikiStatus,
+    detail: wikiDetail,
+  });
+
   const skillsRegistry = await skillsRegistryDoctor();
   checks.push({
     name: skillsRegistry.name,
@@ -323,6 +399,23 @@ export async function runDoctor(options: { live?: boolean; sessionId?: string; i
         });
       } catch (error) {
         checks.push({ name: 'Composio live', status: 'fail', detail: error instanceof Error ? error.message : String(error) });
+      }
+    }
+
+    if (wikiProvider === 'supermemory' || wikiProvider === 'upstash') {
+      try {
+        const results = await queryWiki('ping', 1);
+        checks.push({
+          name: 'Corporate Wiki live',
+          status: 'pass',
+          detail: `Connected to ${wikiProvider === 'supermemory' ? 'SuperMemory' : 'Upstash Vector'} successfully (returned ${results.length} results)`,
+        });
+      } catch (error) {
+        checks.push({
+          name: 'Corporate Wiki live',
+          status: 'fail',
+          detail: `Could not connect to ${wikiProvider === 'supermemory' ? 'SuperMemory' : 'Upstash Vector'}: ${error instanceof Error ? error.message : String(error)}`,
+        });
       }
     }
   }

@@ -85,6 +85,16 @@ export type Env = {
   braveApiKey: string | undefined;
   wolframAlphaAppId: string | undefined;
   databaseUrl: string | undefined;
+  awsAccessKeyId: string | undefined;
+  awsSecretAccessKey: string | undefined;
+  awsRegion: string | undefined;
+  gcsProjectId: string | undefined;
+  gcsKeyFilename: string | undefined;
+  blobReadWriteToken: string | undefined;
+  corporateWikiProvider: string | undefined;
+  supermemoryApiKey: string | undefined;
+  upstashVectorRestUrl: string | undefined;
+  upstashVectorRestToken: string | undefined;
 };
 
 export const env: Env = {
@@ -134,6 +144,16 @@ export const env: Env = {
   braveApiKey: process.env.BRAVE_API_KEY,
   wolframAlphaAppId: process.env.WOLFRAM_ALPHA_APP_ID,
   databaseUrl: process.env.DATABASE_URL,
+  awsAccessKeyId: process.env.AWS_ACCESS_KEY_ID,
+  awsSecretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  awsRegion: process.env.AWS_REGION || 'us-east-1',
+  gcsProjectId: process.env.GCS_PROJECT_ID,
+  gcsKeyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS,
+  blobReadWriteToken: process.env.BLOB_READ_WRITE_TOKEN,
+  corporateWikiProvider: process.env.CORPORATE_WIKI_PROVIDER,
+  supermemoryApiKey: process.env.SUPERMEMORY_API_KEY,
+  upstashVectorRestUrl: process.env.UPSTASH_VECTOR_REST_URL,
+  upstashVectorRestToken: process.env.UPSTASH_VECTOR_REST_TOKEN,
 };
 
 export function hasGatewayAuth() {

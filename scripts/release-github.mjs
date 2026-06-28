@@ -12,7 +12,7 @@ const title = `ZilMate ${tag}`;
 
 const notes = `# ${title}
 
-ZilMate ${tag} — Advanced Cascaded Voice Session system, featuring ultra-low latency, custom speaking speeds, keyword boosting, and turn-based barge-in interruptions.
+ZilMate ${tag} — The ultimate power-up release, transforming ZilMate into an extremely robust, cross-platform system. It introduces a suite of DevOps, SysOps, Multimedia, Cloud Storage, and Unified Corporate Wiki tools that can "survive anything" on Windows, macOS, and Linux with full local/offline fallbacks and extensive diagnostic safeguards.
 
 ## Install
 
@@ -25,18 +25,29 @@ zilmate menu
 
 ## Highlights
 
-- **Ultra-Low Latency Streaming Playback** — Tuned underlying \`ffplay\` configuration parameters (\`-fflags nobuffer+fastseek -flags low_delay -strict experimental\`) to minimize streaming audio latency during Text-To-Speech.
-- **Turn-Based Conversational Barge-In** — Integrated real-time turn tracking and a user-speaking event hook (\`SpeechStarted\`). Speaking instantly kills any active audio output processes (\`SIGKILL\`), cuts off assistant audio, and invalidates/discards stale ongoing background agent reasoning turns.
-- **Custom Speaking Speeds** — Added \`ZILMATE_VOICE_TTS_SPEED\` supporting speed adjustments natively in Deepgram live TTS stream configurations (values \`0.7\` to \`1.5\`).
-- **Keyword Boosting** — Introduced \`ZILMATE_VOICE_LISTEN_KEYWORDS\` to feed comma-separated word arrays directly to Deepgram's live Speech-To-Text connection, improving CLI voice command recognition.
-- **Type-Safe Full Build Validation** — Cleanly compiled under strict TypeScript compiler rules.
+### ☁️ Cloud Storage (Multi-Provider Stream-Safe Storage)
+- **Zero-Memory Chunked Uploads & Content-Type Detection** — Supports uploading massive database dumps, screenshots, and logs using official SDK libraries for AWS S3, Google Cloud Storage, and Vercel Blob. Auto-detects extensions to set beautiful in-browser rendering.
+- **Recursive Directory Purging** — Easily remove entire directories recursively on S3, GCS, or Vercel Blob with batched deletion.
+- **Temporary Signed URL Generation** — Generate pre-signed secure URLs for timed reading/writing.
 
-## Quick Checks
+### 🛠️ DevOps (Docker & Env Management)
+- **Container Command Execution (\`execDockerCommand\`)** — Run command arrays inside running containers securely with strict command-injection protection (e.g., seeding a database inside a Postgres container).
+- **Container Control & Logs** — Query, start, stop, restart, kill, and fetch real-time logs of Docker containers.
+- **Env Validation** — Securely audits and validates local \`.env\` structures against standard examples without leaking secrets.
 
-\`\`\`powershell
-zilmate voice doctor
-zilmate voice devices
-\`\`\`
+### 🖥️ SysOps (System & Port Diagnostics)
+- **Port-Based Process Termination** — Scan active listening ports and immediately terminate blocking processes holding development ports (e.g., \`3000\`, \`8080\`) across Windows, macOS, and Linux.
+- **Real-Time Host Metrics** — Monitor host processor utilization, RAM allocation, disk spaces, and uptime with robust command fallbacks.
+- **Network Routing & Database Schema Inspect** — Perform trace routes, ping latency audits, and explore SQLite database structures via local tools or Python fallbacks.
+
+### 🎙️ Multimedia (Resilient Speech-To-Text & Offline Speech Synthesis)
+- **3-Tier Text-To-Speech Pipeline** — Prioritizes **Deepgram Aura-2** (low latency, high fidelity), falls back to **OpenAI Speech API**, and gracefully cascades to **Local Offline Speech Synthesis** (Windows SAPI via PowerShell, macOS \`say\`, Linux \`espeak\`/\`festival\`) when offline or uncredentialed.
+- **Speech-to-Text & Transcoding** — Seamless audio transcription cascading to Deepgram Nova-2 / OpenAI Whisper-1, video-to-audio extraction, and FFmpeg-driven video transcoding.
+- **Image Watermarking** — Optimize images with custom text watermarks overlaid beautifully in the bottom-right corner using secure filtergraph escaping.
+
+### 📚 Unified Corporate Wiki (SuperMemory & Upstash Vector)
+- **Semantic Knowledge Engine** — Fully integrates **SuperMemory** and **Upstash Vector** for corporate-grade document indexing and search.
+- **Diagnostics and Setup Wizards** — Setup interactive wizards for wiki backends and run comprehensive automated connectivity testing via \`zilmate doctor\`.
 
 ## npm
 

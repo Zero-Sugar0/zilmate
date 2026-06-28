@@ -63,7 +63,7 @@ const program = new Command();
 program
   .name('zilmate')
   .description('ZilMate Agent')
-  .version('1.9.9');
+  .version('1.10.0');
 
 program
   .command('welcome')
@@ -145,8 +145,14 @@ program
   .option('--camera-device <device>', 'optional camera device override, e.g. "video=Integrated Camera"')
   .option('--install-camera-deps <true|false>', 'install ffmpeg for camera capture when missing')
   .option('--install-cloudflare-deps <true|false>', 'install cloudflared for job tunnels when missing')
+  .option('--aws-access-key <key>', 'AWS Access Key ID for S3')
+  .option('--aws-secret-key <key>', 'AWS Secret Access Key for S3')
+  .option('--aws-region <region>', 'AWS Region for S3')
+  .option('--gcs-project-id <id>', 'Google Cloud Storage project ID')
+  .option('--gcs-key-file <path>', 'Google Cloud Storage credentials JSON key file path')
+  .option('--vercel-blob-token <token>', 'Vercel Blob read/write token')
   .description('Create or update a local .env file for ZilMate')
-  .action(async (options: { path: string; force?: boolean; yes?: boolean; aiGatewayKey?: string; composioKey?: string; zilmateUserId?: string; tavilyKey?: string; redisUrl?: string; redisToken?: string; jobsEnabled?: string; qstashToken?: string; jobWebhookUrl?: string; jobWebhookSecret?: string; triggerWorkflowsEnabled?: string; deepgramKey?: string; voiceEnabled?: string; voiceListenModel?: string; voiceTtsModel?: string; voiceLanguage?: string; voiceInputDevice?: string; screenshotModel?: string; fileRoots?: string; cameraDevice?: string; installCameraDeps?: string; installCloudflareDeps?: string }) => {
+  .action(async (options: { path: string; force?: boolean; yes?: boolean; aiGatewayKey?: string; composioKey?: string; zilmateUserId?: string; tavilyKey?: string; redisUrl?: string; redisToken?: string; jobsEnabled?: string; qstashToken?: string; jobWebhookUrl?: string; jobWebhookSecret?: string; triggerWorkflowsEnabled?: string; deepgramKey?: string; voiceEnabled?: string; voiceListenModel?: string; voiceTtsModel?: string; voiceLanguage?: string; voiceInputDevice?: string; screenshotModel?: string; fileRoots?: string; cameraDevice?: string; installCameraDeps?: string; installCloudflareDeps?: string; awsAccessKey?: string; awsSecretKey?: string; awsRegion?: string; gcsProjectId?: string; gcsKeyFile?: string; vercelBlobToken?: string }) => {
     try {
       await runSetup({
         path: options.path,
@@ -174,6 +180,12 @@ program
         ...(options.cameraDevice !== undefined ? { cameraDevice: options.cameraDevice } : {}),
         ...(options.installCameraDeps !== undefined ? { installCameraDeps: options.installCameraDeps } : {}),
         ...(options.installCloudflareDeps !== undefined ? { installCloudflareDeps: options.installCloudflareDeps } : {}),
+        ...(options.awsAccessKey !== undefined ? { awsAccessKeyId: options.awsAccessKey } : {}),
+        ...(options.awsSecretKey !== undefined ? { awsSecretAccessKey: options.awsSecretKey } : {}),
+        ...(options.awsRegion !== undefined ? { awsRegion: options.awsRegion } : {}),
+        ...(options.gcsProjectId !== undefined ? { gcsProjectId: options.gcsProjectId } : {}),
+        ...(options.gcsKeyFile !== undefined ? { gcsKeyFilename: options.gcsKeyFile } : {}),
+        ...(options.vercelBlobToken !== undefined ? { blobReadWriteToken: options.vercelBlobToken } : {}),
       });
     } catch (error) {
       printError(friendlyError(error));
@@ -1080,7 +1092,7 @@ program
 
 async function main() {
   await initWorkspace().catch(() => undefined);
-  await checkForUpdateOnce(program.version() || '1.9.9');
+  await checkForUpdateOnce(program.version() || '1.10.0');
 
   if (process.argv.length <= 2) {
     await startDefaultLauncher();

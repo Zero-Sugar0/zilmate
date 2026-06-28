@@ -17,6 +17,11 @@ import { runVoiceSetup, setVoiceEnabled } from './setup.js';
 import { runSelfUpdate } from './update.js';
 import { listCameraDevicesCli, runCameraDoctorCli } from './camera.js';
 import { selectOne, confirmPrompt, type PromptOption } from './prompt.js';
+import { queryWiki, addWikiFact } from '../memory/corporate-wiki.js';
+import { readJson } from '../memory/local-store.js';
+import { sandboxDevTools } from '../tools/sandbox-dev.tool.js';
+import chalk from 'chalk';
+
 
 async function promptText(message: string): Promise<string> {
   const rl = readline.createInterface({ input, output });
@@ -29,6 +34,7 @@ async function promptText(message: string): Promise<string> {
 
 export async function startMainMenu() {
   try {
+    let firstCheck = true;
     while (true) {
       printZilMateBanner('Main Menu');
 
@@ -37,6 +43,14 @@ export async function startMainMenu() {
           ['Gateway', 'missing'],
           ['Next', 'Run setup to configure AI Gateway, or exit'],
         ]);
+        if (firstCheck) {
+          firstCheck = false;
+          const runSetupNow = await confirmPrompt('It looks like your AI Gateway key is missing. Would you like to run the interactive setup wizard now?', true);
+          if (runSetupNow) {
+            await runSetup();
+            continue;
+          }
+        }
       }
 
       const mainOptions: PromptOption[] = [
@@ -52,6 +66,7 @@ export async function startMainMenu() {
         { id: '10', label: 'Chat channels (Slack/TG)', description: 'Configure messaging integrations' },
         { id: '11', label: 'Update ZilMate', description: 'Check for CLI/SDK updates' },
         { id: '12', label: 'Camera tools', description: 'Diagnose or use laptop camera' },
+        { id: '13', label: 'Corporate Wiki & Sandbox', description: 'Manage corporate wiki or run sandbox dev checks' },
         { id: '0', label: 'Exit' },
       ];
 
@@ -149,6 +164,85 @@ export async function startMainMenu() {
         if (cameraChoice) {
           if (cameraChoice.id === '1') await runCameraDoctorCli();
           if (cameraChoice.id === '2') await listCameraDevicesCli();
+        }
+      } else if (choice === '13') {
+        const wikiOptions: PromptOption[] = [
+          { id: '1', label: 'Query corporate wiki', description: 'Search shared knowledge database' },
+          { id: '2', label: 'Publish fact to wiki', description: 'Index a delivery or API contract' },
+          { id: '3', label: 'List local fallback facts', description: 'Read corporate-wiki-fallback.json' },
+          { id: '4', label: 'Run sandbox dev check', description: 'Trigger compiler & test suite' },
+          { id: '0', label: 'Back' },
+        ];
+        const wikiChoice = await selectOne('Wiki & Sandbox Actions', wikiOptions);
+        if (wikiChoice) {
+          if (wikiChoice.id === '1') {
+            const query = await promptText('Enter semantic query: ');
+            if (query) {
+              console.log(chalk.cyan(`Searching Corporate Wiki for: "${query}"...\n`));
+              const results = await queryWiki(query, 5);
+              if (results.length === 0) {
+                console.log(chalk.yellow('No matching facts found.'));
+              } else {
+                for (const fact of results) {
+                  console.log(chalk.bold(chalk.green(`Match: ${fact.id} (Score: ${(fact.similarity * 100).toFixed(1)}%)`)));
+                  console.log(chalk.gray(`Content: ${fact.content}`));
+                  if (fact.metadata) {
+                    console.log(chalk.gray(`Metadata: ${JSON.stringify(fact.metadata)}`));
+                  }
+                  console.log();
+                }
+              }
+            }
+          } else if (wikiChoice.id === '2') {
+            const content = await promptText('Enter fact content (min 10 chars): ');
+            if (content && content.length >= 10) {
+              const category = await promptText('Enter category (e.g. market-research, api-contract): ');
+              console.log(chalk.cyan('Publishing to Corporate Wiki...'));
+              await addWikiFact(content, { category: category || 'general' });
+              console.log(chalk.green('✅ Intelligence published successfully!'));
+            } else if (content) {
+              console.log(chalk.yellow('Fact too short! Must be at least 10 characters.'));
+            }
+          } else if (wikiChoice.id === '3') {
+            try {
+              const items = await readJson<any[]>('corporate-wiki-fallback.json', []);
+              if (items.length === 0) {
+                console.log(chalk.yellow('Local fallback database is empty.'));
+              } else {
+                console.log(chalk.cyan(`Found ${items.length} local fallback fact(s):\n`));
+                for (const item of items) {
+                  console.log(chalk.bold(chalk.green(`ID: ${item.id}`)));
+                  console.log(chalk.gray(`Timestamp: ${item.timestamp}`));
+                  console.log(chalk.gray(`Content: ${item.content}`));
+                  if (item.metadata) {
+                    console.log(chalk.gray(`Metadata: ${JSON.stringify(item.metadata)}`));
+                  }
+                  console.log();
+                }
+              }
+            } catch (err: any) {
+              console.log(chalk.red(`Failed to read local fallback wiki: ${err.message}`));
+            }
+          } else if (wikiChoice.id === '4') {
+            console.log(chalk.cyan('Launching Sandbox Development Loop (Compile & Test)...'));
+            console.log(chalk.gray('Please wait, running TypeScript compilation and Playwright test suite...'));
+            try {
+              const result = await sandboxDevTools.executeSandboxDevLoop.execute!({
+                compileCommand: 'npm run build',
+                testCommand: 'npx playwright test',
+              }, undefined as any) as any;
+              
+              if (result.success) {
+                console.log(chalk.green('\n✅ Sandbox run passed perfectly!'));
+                console.log(chalk.gray(result.diagnostics));
+              } else {
+                console.log(chalk.red(`\n❌ Sandbox validation failed during ${result.stage} stage!`));
+                console.log(chalk.yellow(result.diagnostics));
+              }
+            } catch (err: any) {
+              console.log(chalk.red(`\n❌ Sandbox runner crashed: ${err.message}`));
+            }
+          }
         }
       }
       await promptText('\nPress Enter to continue...');

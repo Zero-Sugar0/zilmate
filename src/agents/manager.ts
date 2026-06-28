@@ -30,6 +30,10 @@ import { timeTools } from '../tools/time.tool.js';
 import { weatherTools } from '../tools/weather.tool.js';
 import { fileSystemTools } from '../tools/filesystem.tool.js';
 import { desktopTools } from '../tools/desktop.tool.js';
+import { devopsTools } from '../tools/devops.tool.js';
+import { sysopsTools } from '../tools/sysops.tool.js';
+import { multimediaTools } from '../tools/multimedia.tool.js';
+import { cloudTools } from '../tools/cloud.tool.js';
 import { computerUseTools } from '../tools/computer-use.tool.js';
 import { shellTools } from '../tools/shell.tool.js';
 import { skillTools } from '../tools/skills.tool.js';
@@ -325,6 +329,10 @@ export async function createManagerAgent(runId: string = randomUUID(), options: 
       ...weatherTools,
       ...fileSystemTools,
       ...desktopTools,
+      ...devopsTools,
+      ...sysopsTools,
+      ...multimediaTools,
+      ...cloudTools,
       ...jobTools,
       ...triggerTools,
       ...scratchpadTools,

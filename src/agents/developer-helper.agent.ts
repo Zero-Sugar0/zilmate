@@ -7,6 +7,9 @@ import { createScratchpadTools } from '../tools/scratchpad.tool.js';
 import { timeTools } from '../tools/time.tool.js';
 import { deepResearchTool, webExtractTool, webMapTool, webSearchTool } from '../tools/web-search.tool.js';
 import { limits } from '../safety/limits.js';
+import { devopsTools } from '../tools/devops.tool.js';
+import { sysopsTools } from '../tools/sysops.tool.js';
+import { cloudTools } from '../tools/cloud.tool.js';
 
 export function createDeveloperHelperAgent(runId = 'default') {
   const scratchpadTools = createScratchpadTools(runId);
@@ -20,6 +23,9 @@ export function createDeveloperHelperAgent(runId = 'default') {
     ].join(' '),
     tools: {
       ...timeTools,
+      ...devopsTools,
+      ...sysopsTools,
+      ...cloudTools,
       docsSearch: docsSearchTool,
       docsFetch: docsFetchTool,
       webSearch: webSearchTool,

@@ -80,22 +80,62 @@ function senderHint(payload: Record<string, unknown> | undefined) {
   return '';
 }
 
-function classifyPriority(event: IncomingTriggerPayload, text: string): TriggerPriority {
-  if (urgentPattern.test(text)) return 'urgent';
+const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+function classifyPriority(
+  event: IncomingTriggerPayload,
+  text: string,
+  policy?: { vipSenders?: string[]; urgentKeywords?: string[]; lowPriorityKeywords?: string[] }
+): TriggerPriority {
+  const urgentWords = (policy?.urgentKeywords && policy.urgentKeywords.length > 0)
+    ? policy.urgentKeywords
+    : ['urgent', 'asap', 'immediately', 'critical', 'emergency', 'deadline today', 'overdue', 'outage', 'down', 'blocked'];
+
+  const urgentRegex = new RegExp(`\\b(${urgentWords.map(escapeRegExp).join('|')})\\b`, 'i');
+  if (urgentRegex.test(text)) return 'urgent';
+
   const toolkit = event.toolkitSlug?.toLowerCase() || '';
   if (toolkit.includes('pager') || toolkit.includes('incident') || toolkit.includes('alert')) return 'urgent';
   if (toolkit.includes('calendar') && /\b(starting|starts|in \d+ min|now)\b/i.test(text)) return 'high';
+
+  // High priority for failed/disputed billing events
+  if ((toolkit.includes('stripe') || toolkit.includes('payment') || toolkit.includes('invoice')) && /\b(failed|chargeback|dispute|refund|unpaid)\b/i.test(text)) {
+    return 'high';
+  }
+
   const sender = senderHint(event.payload as Record<string, unknown> | undefined);
-  if (sender && vipSenders.some((hint) => sender.includes(hint))) return 'high';
-  if (newsletterPattern.test(text) || newsletterPattern.test(sender)) return 'low';
+  const activeVip = (policy?.vipSenders && policy.vipSenders.length > 0)
+    ? policy.vipSenders
+    : vipSenders;
+
+  if (sender && activeVip.some((hint) => sender.includes(hint.toLowerCase()))) return 'high';
+
+  const lowWords = (policy?.lowPriorityKeywords && policy.lowPriorityKeywords.length > 0)
+    ? policy.lowPriorityKeywords
+    : ['newsletter', 'unsubscribe', 'digest', 'promotion', 'marketing', 'no-reply', 'noreply'];
+
+  const lowRegex = new RegExp(`\\b(${lowWords.map(escapeRegExp).join('|')})\\b`, 'i');
+  if (lowRegex.test(text) || (sender && lowWords.some((hint) => sender.includes(hint.toLowerCase())))) return 'low';
+
   return 'normal';
 }
 
-function classifyRoute(event: IncomingTriggerPayload, priority: TriggerPriority, text: string): TriggerRoute {
+function classifyRoute(
+  event: IncomingTriggerPayload,
+  priority: TriggerPriority,
+  text: string,
+  policy?: { lowPriorityKeywords?: string[] }
+): TriggerRoute {
   const toolkit = event.toolkitSlug?.toLowerCase() || '';
   const sender = senderHint(event.payload as Record<string, unknown> | undefined);
 
-  if (newsletterPattern.test(text) || newsletterPattern.test(sender)) return 'batch_summary';
+  const lowWords = (policy?.lowPriorityKeywords && policy.lowPriorityKeywords.length > 0)
+    ? policy.lowPriorityKeywords
+    : ['newsletter', 'unsubscribe', 'digest', 'promotion', 'marketing', 'no-reply', 'noreply'];
+
+  const lowRegex = new RegExp(`\\b(${lowWords.map(escapeRegExp).join('|')})\\b`, 'i');
+  if (lowRegex.test(text) || (sender && lowWords.some((hint) => sender.includes(hint.toLowerCase())))) return 'batch_summary';
+
   if (priority === 'urgent' || priority === 'high') return 'immediate';
   if (toolkit.includes('github') && /\b(review requested|assigned|mentioned|ci failed|build failed)\b/i.test(text)) return 'immediate';
   if (toolkit.includes('slack') && /\b(direct message|dm|@)\b/i.test(text)) return 'draft_reply';
@@ -184,12 +224,15 @@ function categoryForToolkit(toolkit: string) {
   return 'integration';
 }
 
-export function buildTriggerOrchestrationPlan(event: IncomingTriggerPayload): TriggerOrchestrationPlan {
+export function buildTriggerOrchestrationPlan(
+  event: IncomingTriggerPayload,
+  policy?: { vipSenders?: string[]; urgentKeywords?: string[]; lowPriorityKeywords?: string[] }
+): TriggerOrchestrationPlan {
   const chainId = randomUUID();
   const text = payloadText(event);
   const toolkit = event.toolkitSlug?.toLowerCase() || 'external app';
-  const priority = classifyPriority(event, text);
-  const route = classifyRoute(event, priority, text);
+  const priority = classifyPriority(event, text, policy);
+  const route = classifyRoute(event, priority, text, policy);
   const category = categoryForToolkit(toolkit);
   const followUps = followUpsForEvent(event, route, text);
   const metadata: JobMetadata = {
