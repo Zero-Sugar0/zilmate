@@ -33,6 +33,7 @@ We overhauled the visual layout within the HTML trace reporting view inside [src
 *   **Fluid-Grid Scaling**: Removed rigid, legacy viewport limits (`h-full`, `lg:overflow-hidden`) on main tags, allowing trace timeline sections, Gantt chart columns, and pre-formatted text containers to scale dynamically with the screen height.
 *   **Expanded Inspector Panels**: Stripped raw `max-h-60`, `max-h-52`, and `max-h-36` scrolling blocks from raw JSON inspect panels, collaboration reports, and wiki card text elements. This ensures large outputs render in full glory without nested, awkward multi-pane scrollbars.
 *   **Aesthetic Alignment**: Styled scrolling structures to work as a natural single-scrolling canvas, optimizing the Gantt waterfall grid for large-screen monitoring and trace sharing.
+*   **Elite Interactive Diagnostics**: Promoted interactive diagnostic capabilities including collapsible directory tree nodes with auto-expand query matching, clickable KPI metric cards acting as instant active trace filters, chronological Gantt chart timeline grid rulers with dotted tracking guides, and a single-click "Copy JSON" clipboard utility.
 
 ---
 
