@@ -63,7 +63,7 @@ const program = new Command();
 program
   .name('zilmate')
   .description('ZilMate Agent')
-  .version('1.10.2');
+  .version('1.10.3');
 
 program
   .command('welcome')
@@ -1155,7 +1155,7 @@ program
 
 async function main() {
   await initWorkspace().catch(() => undefined);
-  await checkForUpdateOnce(program.version() || '1.10.2');
+  await checkForUpdateOnce(program.version() || '1.10.3');
 
   if (process.argv.length <= 2) {
     try {
