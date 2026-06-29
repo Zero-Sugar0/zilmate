@@ -1,6 +1,10 @@
 # <p align="center">🤖 ZilMate</p>
 
 <p align="center">
+  <img src="public/zilmate.png" alt="ZilMate Logo" width="180">
+</p>
+
+<p align="center">
   <b>Production-Grade Multi-Agent AI Swarm, Real-Time Voice Controller, and Webhook Job Scheduler</b>
 </p>
 
