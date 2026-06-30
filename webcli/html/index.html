@@ -47,6 +47,15 @@
             <div class="nav-item" data-tab="wiki">
                 <span>📚</span> Intelligence Wiki
             </div>
+            <div class="nav-item" data-tab="voice">
+                <span>🎙️</span> Realtime Voice
+            </div>
+            <div class="nav-item" data-tab="camera">
+                <span>📷</span> Camera Tools
+            </div>
+            <div class="nav-item" data-tab="models">
+                <span>🤖</span> AI Models
+            </div>
             <div class="nav-item" data-tab="doctor">
                 <span>🩺</span> System Health
             </div>
@@ -62,6 +71,12 @@
 
     <!-- Main Content Area -->
     <main class="main">
+        <!-- Update Banner (Hidden by default) -->
+        <div id="update-banner" class="hidden" style="background: var(--warning-bg); border-bottom: 1px solid var(--warning); padding: 8px 32px; display: flex; justify-content: space-between; align-items: center; z-index: 100;">
+            <div style="font-size: 13px; font-weight: 600; color: var(--warning);">🚀 Update available: v3.5.0 → v3.5.1. Run <code style="background: rgba(0,0,0,0.05); padding: 2px 4px; border-radius: 4px;">zilmate update</code> to get the latest features!</div>
+            <button onclick="document.getElementById('update-banner').classList.add('hidden')" style="font-size: 12px; font-weight: 700; color: var(--warning); background: none; border: none; cursor: pointer;">✕</button>
+        </div>
+
         <header>
             <h2 class="page-title">Talk to ZilMate</h2>
             <div class="header-meta">
@@ -101,9 +116,7 @@
 
         <!-- View: Swarm Hierarchy -->
         <div id="view-swarm" class="view-container hidden">
-            <div class="grid" id="swarm-grid">
-                <!-- Populated by JS -->
-            </div>
+            <div class="grid" id="swarm-grid"></div>
         </div>
 
         <!-- View: Live Traces -->
@@ -113,63 +126,60 @@
                     <span class="card-title">Active Execution Spans</span>
                     <span class="status-pill">Live Updates</span>
                 </div>
-                <div id="trace-container" style="flex: 1; overflow-y: auto;">
-                    <!-- Populated by JS -->
+                <div id="trace-container" style="flex: 1; overflow-y: auto;"></div>
+            </div>
+        </div>
+
+        <!-- View: Voice -->
+        <div id="view-voice" class="view-container hidden">
+            <div class="card" style="text-align: center; padding: 64px;">
+                <div class="avatar" style="width: 80px; height: 80px; font-size: 32px; margin: 0 auto 24px;">🎙️</div>
+                <h3 style="font-size: 24px; font-weight: 700; margin-bottom: 8px;">Realtime Voice Interface</h3>
+                <p style="color: var(--on-surface-variant); margin-bottom: 32px;">Speak naturally with ZilMate. Active listening is powered by Deepgram.</p>
+                <div id="waveform" style="display: flex; justify-content: center; align-items: center; gap: 4px; height: 40px; margin-bottom: 32px;">
+                    <!-- Waveform bars -->
+                </div>
+                <button class="btn btn-primary">Start Session</button>
+            </div>
+            <div class="grid" id="voice-config-grid"></div>
+        </div>
+
+        <!-- View: Camera -->
+        <div id="view-camera" class="view-container hidden">
+            <div class="card" style="aspect-ratio: 16/9; background: #000; border-radius: 16px; display: flex; items-center; justify-content: center; position: relative; overflow: hidden;">
+                <div style="color: white; font-weight: 600;">[ VIEW MARKER: LIVE CAMERA FEED ]</div>
+                <div style="position: absolute; bottom: 24px; width: 100%; display: flex; justify-content: center; gap: 16px;">
+                    <button class="btn" style="background: rgba(255,255,255,0.2); color: white; backdrop-filter: blur(10px);">Snap Photo</button>
+                    <button class="btn" style="background: white; color: black;">Capture & Analyze</button>
                 </div>
             </div>
+            <div class="grid" id="camera-devices-grid"></div>
         </div>
 
-        <!-- View: Connected Apps -->
-        <div id="view-apps" class="view-container hidden">
-            <div class="grid" id="apps-grid">
-                <!-- Populated by JS -->
+        <!-- View: Models -->
+        <div id="view-models" class="view-container hidden">
+            <div class="card" style="padding: 0;">
+                <table style="width: 100%; border-collapse: collapse;">
+                    <thead style="background: var(--surface-dim);">
+                        <tr>
+                            <th style="text-align: left; padding: 12px 24px; font-size: 12px; font-weight: 700; color: var(--on-surface-variant);">ID</th>
+                            <th style="text-align: left; padding: 12px 24px; font-size: 12px; font-weight: 700; color: var(--on-surface-variant);">PROVIDER</th>
+                            <th style="text-align: left; padding: 12px 24px; font-size: 12px; font-weight: 700; color: var(--on-surface-variant);">STATUS</th>
+                        </tr>
+                    </thead>
+                    <tbody id="models-list"></tbody>
+                </table>
             </div>
         </div>
 
-        <!-- View: MCP Servers -->
-        <div id="view-mcp" class="view-container hidden">
-            <div class="grid" id="mcp-grid">
-                <!-- Populated by JS -->
-            </div>
-        </div>
-
-        <!-- View: Specialized Skills -->
-        <div id="view-skills" class="view-container hidden">
-            <div class="grid" id="skills-grid">
-                <!-- Populated by JS -->
-            </div>
-        </div>
-
-        <!-- View: Triggers -->
-        <div id="view-triggers" class="view-container hidden">
-            <div class="grid" id="triggers-grid">
-                <!-- Populated by JS -->
-            </div>
-        </div>
-
-        <!-- View: Jobs -->
-        <div id="view-jobs" class="view-container hidden">
-            <div class="grid" id="jobs-grid">
-                <!-- Populated by JS -->
-            </div>
-        </div>
-
-        <!-- View: System Doctor -->
-        <div id="view-doctor" class="view-container hidden">
-            <div class="grid" id="doctor-grid">
-                <!-- Populated by JS -->
-            </div>
-        </div>
-
-        <!-- Other views -->
-        <div id="view-other" class="view-container hidden">
-            <div class="card">
-                <div class="card-head">
-                    <span class="card-title">Module Under Construction</span>
-                </div>
-                <p style="color: var(--on-surface-variant); font-size: 14px;">This module is being integrated with the real-time agent bridge.</p>
-            </div>
-        </div>
+        <!-- Populated by JS -->
+        <div id="view-apps" class="view-container hidden"><div class="grid" id="apps-grid"></div></div>
+        <div id="view-mcp" class="view-container hidden"><div class="grid" id="mcp-grid"></div></div>
+        <div id="view-skills" class="view-container hidden"><div class="grid" id="skills-grid"></div></div>
+        <div id="view-triggers" class="view-container hidden"><div class="grid" id="triggers-grid"></div></div>
+        <div id="view-jobs" class="view-container hidden"><div class="grid" id="jobs-grid"></div></div>
+        <div id="view-doctor" class="view-container hidden"><div class="grid" id="doctor-grid"></div></div>
+        <div id="view-other" class="view-container hidden"><div class="card"><div class="card-head"><span class="card-title">Module Under Construction</span></div><p style="color: var(--on-surface-variant); font-size: 14px;">This module is being integrated.</p></div></div>
 
     </main>
 
