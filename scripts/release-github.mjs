@@ -27,6 +27,10 @@ zilmate status
 
 ## 🌌 Swarm Architecture Highlights (Digital Corporation Blueprint)
 
+- **🌐 ZilMate Ubiquity Background Service** — Zero-dependency background service offering system-wide hotkeys:
+  - **Global Hotkey Integration**: Press \`Ctrl+Shift+Z\` (Windows) or \`Cmd+Shift+Z\` (macOS) in any application (Notion, WhatsApp, browser, etc.) to intercept, process, and replace selected text in-place.
+  - **Zero-Dependency Native Listeners**: PowerShell-compiled WinForms hooks on Windows, and programmatically constructed native Service Workflows on macOS.
+  - **Secure Local API Daemon**: High-speed communication protected by single-use bearer tokens, guarding from cross-origin hijacking.
 - **🏛️ Departmental Topology** — Organizes 30+ AI specialists across 6 core corporate divisions:
   - **Strategy & Product** (Product Manager, UX Researcher, Market Analyst)
   - **Engineering & Creative** (Architect, Full-Stack Coder, QA Engineer, SRE, Video Producer, Security Auditors)
@@ -39,6 +43,7 @@ zilmate status
   - **Passive blackboard Bus (Semantic Corporate Wiki)**: Agents publish high-value deliverables to a shared semantic index (SuperMemory / Upstash Vector) for others to query asynchronously on-demand.
 - **🛡️ Semantic Approvals Firewall (\`approvals.ts\`)** — Intercepts filesystem and terminal commands via high-speed regex checks and low-latency LLM guardrails to prevent OWASP and host shell exploits.
 - **🛑 Departmental Suspension** — Safe-guards operation by enabling operators to halt or resume specific departments at any time without halting the global swarm.
+
 
 ## 🛠️ Also Included in the 1.10.x Release Train
 - **☁️ Cloud Storage Integration** — Stream-safe chunked uploads, recursive directory purging, and timed pre-signed URL generation.

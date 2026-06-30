@@ -1,6 +1,6 @@
 # ZilMate Assistant — Architecture & New Updates 🌌
 
-Welcome to the **ZilMate Assistant** handbook. This document describes the powerful advancements, architecture, and toolkits added across the **v1.10.x** release train (culminating in **v1.10.3**).
+Welcome to the **ZilMate Assistant** handbook. This document describes the powerful advancements, architecture, and toolkits added across the **v1.10.x** release train (culminating in **v1.10.4**).
 
 ---
 
@@ -133,3 +133,21 @@ We implemented critical UX and cognitive optimizations to enhance interactive CL
 ### 🧠 Semantic Corporate Wiki for Coding Subagents
 *   **Aligning Coding Delegates**: Equipped the internal `appBuilder` and `qaIntegration` subagents inside [src/agents/coding.agent.ts](src/agents/coding.agent.ts) with full corporate wiki tools (`queryCorporateWiki` and `publishToCorporateWiki`).
 *   **Unified Context Integration**: Subagents now fetch relational requirements, third-party schemas, and monetization guides dynamically before scaffolding code, guaranteeing architectural sync.
+
+---
+
+## 🌐 8. ZilMate Ubiquity Background Service (v1.10.4)
+
+We engineered **ZilMate Ubiquity**—a highly optimized, zero-dependency background daemon service that allows users to query ZilMate and inject responses anywhere across their operating system using global hotkeys.
+
+### A. Zero-Dependency Cross-Platform Architecture
+*   **Windows Hotkey Listener (`win-listener.ps1`)**: Runs a WinForms keyboard hook and message loop compiled on-the-fly inside PowerShell. This avoids requiring heavy Electron wrappers or separate compiled C# binary executables.
+*   **macOS Automated Service Installer (`mac-installer.ts`)**: Programmatically scaffolds a native Quick Action Service at `~/Library/Services/ZilMate Ubiquity.workflow/`. It hooks into the macOS system shortcuts framework using Custom Plists and a fast JavaScript for Automation (JXA) JSON parser to bind to `Cmd+Shift+Z`.
+
+### B. Secure Token-Based Communication
+*   **Daemon Port Integration**: Operates a background Express-like service listening on `127.0.0.1:8124`.
+*   **CSRF/Bearer Protection**: Securely writes a single-use authorization token to the user's home folder (`~/.zilmate-token`), protecting against any unauthorized cross-origin requests.
+
+### C. Pristine Clipboard & Selection Interception
+*   **Automatic Backup**: On triggering `Ctrl+Shift+Z` / `Cmd+Shift+Z`, the daemon backs up the user's active clipboard, issues an OS-level key combination to copy the highlighted text, processes the prompt in the background with "Pure Output Mode" (no conversational preambles), writes the result back, pastes it into the active field, and restores the original clipboard.
+

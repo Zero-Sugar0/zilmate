@@ -938,6 +938,7 @@ export async function runSetup(options: SetupOptions = {}) {
     }
     console.log(chalk.gray('  zilmate voice doctor'));
     console.log(chalk.gray('  zilmate camera doctor'));
+    console.log(chalk.gray('  zilmate daemon start  (for system-wide hotkeys: Ctrl+Shift+Z / Cmd+Shift+Z)'));
   } finally {
     rl.close();
   }

@@ -102,7 +102,7 @@ import { browserTools } from '../tools/browser.tool.js';
 import { imageIntelligenceTools } from '../tools/image-intelligence.tool.js';
 import { webIntelligenceTools } from '../tools/web-intelligence.tool.js';
 
-function buildManagerInstructions() {
+function buildManagerInstructions(options: { sessionId?: string } = {}) {
   const builder = new SystemPromptBuilder();
 
   builder.addSection({
@@ -229,7 +229,23 @@ function buildManagerInstructions() {
     ].join('\n'),
   });
 
-  return builder.build(['mcp', 'composio', 'automation', 'system', 'specialists', 'workspace']);
+  if (options.sessionId === 'ubiquity') {
+    builder.addSection({
+      id: 'ubiquity_pure_output',
+      content: [
+        '# CRITICAL UBIQUITY PURE-OUTPUT PROTOCOL',
+        'You are executing in system-wide inline text processing/rewriting mode (ZilMate Ubiquity). The output you generate will be injected directly back into the user\'s active editor, chat box, or text field.',
+        '',
+        'To ensure a seamless user experience, you MUST strictly adhere to the following rules:',
+        '1. **OUTPUT ONLY THE RESULT**: Do NOT include any chatty dialogue, introductory sentences, polite preambles, or conversational follow-ups (e.g., do NOT say "Sure, here is the text:", "I hope this helps!", or ask "Is there anything else?").',
+        '2. **NO CHAT FLUFF**: Your output must consist SOLELY of the processed text, translated output, or direct answer.',
+        '3. **PRESERVE TARGET PATTERNS**: If asked to do a find-and-replace, rewrite, translation, or correction, output ONLY the final corrected/rewritten text.',
+        '4. **NO TOOL EXPLANATIONS**: Even if you delegate to another specialist or use a tool, do NOT explain what you did. Just output the final, direct result.',
+      ].join('\n'),
+    });
+  }
+
+  return builder.build(['mcp', 'composio', 'automation', 'system', 'specialists', 'workspace', 'ubiquity_pure_output']);
 }
 
 export async function createManagerAgent(runId: string = randomUUID(), options: { sessionId?: string } = {}) {
@@ -254,7 +270,7 @@ export async function createManagerAgent(runId: string = randomUUID(), options: 
 
   return new ToolLoopAgent({
     model: models.manager,
-    instructions: buildManagerInstructions(),
+    instructions: buildManagerInstructions(options),
     tools: {
       quickHelp: subagentTool('quickHelp', 'Fast troubleshooting and usage guidance.', async (prompt, abortSignal) => {
         const result = await quickHelp.generate(agentInput(prompt, abortSignal));

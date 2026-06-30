@@ -337,6 +337,34 @@ export async function runDoctor(options: { live?: boolean; sessionId?: string; i
         : 'Linux notify-send / zenify fallback',
   });
 
+  // Check if Ubiquity Daemon is running on port env.zilmateDaemonPort
+  let daemonRunning = false;
+  try {
+    const socket = new Promise<boolean>((resolve) => {
+      import('node:net').then(({ createConnection }) => {
+        const conn = createConnection(env.zilmateDaemonPort, '127.0.0.1');
+        conn.on('connect', () => {
+          conn.destroy();
+          resolve(true);
+        });
+        conn.on('error', () => {
+          resolve(false);
+        });
+      }).catch(() => resolve(false));
+    });
+    daemonRunning = await socket;
+  } catch {
+    // ignore
+  }
+
+  checks.push({
+    name: 'Ubiquity Daemon',
+    status: daemonRunning ? 'pass' : 'warn',
+    detail: daemonRunning
+      ? `ZilMate Ubiquity Daemon is active on http://127.0.0.1:${env.zilmateDaemonPort}`
+      : 'Daemon is inactive; run `zilmate daemon start` to enable system-wide hotkeys',
+  });
+
   if (hasQStash()) {
     checks.push({
       name: 'QStash webhook',

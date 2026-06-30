@@ -464,6 +464,14 @@ export function agentCard(agentName: string, dept: string, content: string, widt
 
 // ─── Display state ────────────────────────────────────────────────────────────
 // Tracks the active specialist panel so tool calls inside it can be indented.
+interface ActiveSpecialistState {
+  name: string;
+  department: string;
+  startedAt: number;
+  lastActive: number;
+  status: string;
+}
+
 interface DisplayState {
   activeSpecialist: string | null;
   activeDept: string | null;
@@ -471,6 +479,7 @@ interface DisplayState {
   toolStartTimes: Map<string, number>;
   sessionStart: number;
   thinkStart: number;
+  activeSpecialists: Map<string, ActiveSpecialistState>;
 }
 
 const displayState: DisplayState = {
@@ -480,6 +489,7 @@ const displayState: DisplayState = {
   toolStartTimes: new Map(),
   sessionStart: Date.now(),
   thinkStart: 0,
+  activeSpecialists: new Map(),
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -569,6 +579,70 @@ let thinkingLabel = 'Thinking';
 
 function triggerThinkingTick() {
   const w = Math.min(maxWidth(), 90);
+  
+  if (displayState.activeSpecialists.size > 1) {
+    const frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+    const spinner = frames[thinkingFrame % frames.length]!;
+    thinkingFrame++;
+
+    const innerW = w - 4;
+    const lines: string[] = [];
+
+    // Title line
+    const titleText = ` 🤖 SWARM DECENTRALIZED COCKPIT `;
+    const titleColor = chalk.bold.cyanBright(titleText);
+    const visibleTitleLen = stripAnsi(titleColor).length;
+    const preDashes = 4;
+    const postDashes = Math.max(0, (w - 2) - visibleTitleLen - preDashes);
+    const top = zilTheme.thinking(`╭${'─'.repeat(preDashes)}${titleColor}${'─'.repeat(postDashes)}╮`);
+    lines.push(top);
+
+    // Active specialists
+    const activeSpecs = Array.from(displayState.activeSpecialists.values());
+    for (const spec of activeSpecs) {
+      const { color, icon } = getDeptTheme(spec.department);
+      const duration = Date.now() - spec.startedAt;
+      const durationStr = formatWorkedTime(duration);
+
+      // Color code specific statuses
+      let statusText = spec.status;
+      if (statusText.startsWith('Running')) {
+        statusText = chalk.yellow(statusText);
+      } else if (statusText.startsWith('Failed')) {
+        statusText = chalk.red(statusText);
+      } else if (statusText === 'Idle') {
+        statusText = chalk.gray(statusText);
+      } else {
+        statusText = chalk.cyan(statusText);
+      }
+
+      const leftText = `  ${color(spinner)}  ${color(`${icon} ${spec.department.toUpperCase()}`)} · ${chalk.bold.white(spec.name)}`;
+      const rightText = `${statusText}  ${chalk.gray(`(${durationStr})`)}`;
+      const row = zilTheme.thinking('│ ') + rightAlign(leftText, rightText, innerW) + zilTheme.thinking(' │');
+      lines.push(row);
+    }
+
+    // Divider
+    const mid = zilTheme.thinking(`├${'─'.repeat(w - 2)}┤`);
+    lines.push(mid);
+
+    // General swarm session stats
+    const totalElapsed = formatWorkedTime(Date.now() - displayState.sessionStart);
+    const hintText = chalk.gray('(Ctrl+C to interrupt)');
+    const statsLeft = `  ${chalk.green('⚡')} ${chalk.green('SWARM ACTIVE')} · ${chalk.white(`${activeSpecs.length} specialists active`)}`;
+    const statsRight = `${hintText}  Total: ${chalk.bold.cyan(totalElapsed)}`;
+    const statsRow = zilTheme.thinking('│ ') + rightAlign(statsLeft, statsRight, innerW) + zilTheme.thinking(' │');
+    lines.push(statsRow);
+
+    // Bottom line
+    const bot = zilTheme.thinking(`╰${'─'.repeat(w - 2)}╯`);
+    lines.push(bot);
+
+    logUpdate(lines.join('\n'));
+    return;
+  }
+
+  // Fallback to standard single-agent thinking box (unchanged)
   const frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
   const elapsed = fmtElapsed(displayState.thinkStart || Date.now());
   const hint = chalk.gray('(Ctrl+C to interrupt)');
@@ -649,6 +723,7 @@ function printProgressWithSticky(event: ProgressEvent) {
     displayState.stepCount = 0;
     displayState.sessionStart = Date.now();
     displayState.thinkStart = 0;
+    displayState.activeSpecialists.clear();
     return;
   }
 
@@ -657,52 +732,115 @@ function printProgressWithSticky(event: ProgressEvent) {
 
   // ── Specialist start: open department panel ──────────────────────────────
   if (event.type === 'specialist:start') {
-    displayState.activeSpecialist = event.agent || event.label;
-    displayState.activeDept = event.department || 'General';
-    openSpecialistPanel(event.label, displayState.activeDept, event.detail);
+    const specKey = event.agent || event.label;
+    const name = event.label;
+    const dept = event.department || 'General';
+
+    displayState.activeSpecialists.set(specKey, {
+      name,
+      department: dept,
+      startedAt: Date.now(),
+      lastActive: Date.now(),
+      status: event.detail || 'Initial plans',
+    });
+
+    if (displayState.activeSpecialists.size <= 1) {
+      displayState.activeSpecialist = specKey;
+      displayState.activeDept = dept;
+      openSpecialistPanel(name, dept, event.detail);
+    } else {
+      const { color, icon } = getDeptTheme(dept);
+      console.log(color(`✦ [Swarm] ${icon} ${dept.toUpperCase()} specialist ${chalk.bold(name)} joined parallel session.`));
+    }
   }
 
   // ── Specialist end: close department panel ───────────────────────────────
   else if (event.type === 'specialist:end') {
-    const dept = event.department || displayState.activeDept || 'General';
-    closeSpecialistPanel(event.label, dept, event.durationMs);
-    displayState.activeSpecialist = null;
-    displayState.activeDept = null;
+    const name = event.label;
+    const specKey = event.agent || name;
+    const specState = displayState.activeSpecialists.get(specKey);
+    const dept = event.department || specState?.department || displayState.activeDept || 'General';
+    const elapsed = specState ? Date.now() - specState.startedAt : (event.durationMs || 0);
+
+    displayState.activeSpecialists.delete(specKey);
+
+    if (displayState.activeSpecialists.size === 0) {
+      closeSpecialistPanel(name, dept, event.durationMs || elapsed);
+      displayState.activeSpecialist = null;
+      displayState.activeDept = null;
+    } else {
+      const { color } = getDeptTheme(dept);
+      const timing = elapsed ? `  ${fmtMs(elapsed)}` : '';
+      console.log(color(`✦ [Swarm] ${name} completed task in parallel session.${timing}`));
+      
+      if (displayState.activeSpecialists.size === 1) {
+        const [remainingKey, remainingState] = Array.from(displayState.activeSpecialists.entries())[0]!;
+        displayState.activeSpecialist = remainingKey;
+        displayState.activeDept = remainingState.department;
+      }
+    }
   }
 
   // ── Tool start ───────────────────────────────────────────────────────────
   else if (event.type === 'tool:start') {
-    displayState.toolStartTimes.set(event.label, Date.now());
-    const pfx = indent();
-    const pipe = displayState.activeSpecialist ? chalk.hex('#475569')('│ ') : '';
-    const branch = chalk.hex('#475569')('├─ ');
-    const badge = toolBadge(event.label, 'start');
-    const detail = event.detail ? chalk.gray(` — ${truncate(event.detail, 72)}`) : '';
-    console.log(`${pfx}${pipe}${branch}${badge}${detail}`);
+    if (displayState.activeSpecialists.size > 1 && event.agent) {
+      const spec = displayState.activeSpecialists.get(event.agent);
+      if (spec) {
+        spec.status = `Running ${event.label}`;
+        spec.lastActive = Date.now();
+      }
+      displayState.toolStartTimes.set(`${event.agent}:${event.label}`, Date.now());
+    } else {
+      displayState.toolStartTimes.set(event.label, Date.now());
+      const pfx = indent();
+      const pipe = displayState.activeSpecialist ? chalk.hex('#475569')('│ ') : '';
+      const branch = chalk.hex('#475569')('├─ ');
+      const badge = toolBadge(event.label, 'start');
+      const detail = event.detail ? chalk.gray(` — ${truncate(event.detail, 72)}`) : '';
+      console.log(`${pfx}${pipe}${branch}${badge}${detail}`);
+    }
   }
 
   // ── Tool end ─────────────────────────────────────────────────────────────
   else if (event.type === 'tool:end') {
-    const startTime = displayState.toolStartTimes.get(event.label);
-    displayState.toolStartTimes.delete(event.label);
-    const timing = startTime ? `  ${fmtMs(Date.now() - startTime)}` : '';
-    const pfx = indent();
-    const pipe = displayState.activeSpecialist ? chalk.hex('#475569')('│ ') : '';
-    const elbow = chalk.hex('#475569')('│   └ ');
-    const badge = toolBadge(event.label, 'end');
-    const detail = event.detail ? chalk.gray(` · ${truncate(event.detail, 60)}`) : '';
-    console.log(`${pfx}${pipe}${elbow}${badge}${detail}${timing}`);
+    if (displayState.activeSpecialists.size > 1 && event.agent) {
+      const spec = displayState.activeSpecialists.get(event.agent);
+      if (spec) {
+        spec.status = `Idle`;
+        spec.lastActive = Date.now();
+      }
+      displayState.toolStartTimes.delete(`${event.agent}:${event.label}`);
+    } else {
+      const startTime = displayState.toolStartTimes.get(event.label);
+      displayState.toolStartTimes.delete(event.label);
+      const timing = startTime ? `  ${fmtMs(Date.now() - startTime)}` : '';
+      const pfx = indent();
+      const pipe = displayState.activeSpecialist ? chalk.hex('#475569')('│ ') : '';
+      const elbow = chalk.hex('#475569')('│   └ ');
+      const badge = toolBadge(event.label, 'end');
+      const detail = event.detail ? chalk.gray(` · ${truncate(event.detail, 60)}`) : '';
+      console.log(`${pfx}${pipe}${elbow}${badge}${detail}${timing}`);
+    }
   }
 
   // ── Tool error ───────────────────────────────────────────────────────────
   else if (event.type === 'tool:error') {
-    displayState.toolStartTimes.delete(event.label);
-    const pfx = indent();
-    const pipe = displayState.activeSpecialist ? chalk.hex('#475569')('│ ') : '';
-    const elbow = chalk.hex('#475569')('│   └ ');
-    const badge = toolBadge(event.label, 'error');
-    const err = chalk.red(` — ${truncate(event.detail || 'Failed', 80)}`);
-    console.log(`${pfx}${pipe}${elbow}${badge}${err}`);
+    if (displayState.activeSpecialists.size > 1 && event.agent) {
+      const spec = displayState.activeSpecialists.get(event.agent);
+      if (spec) {
+        spec.status = `Failed: ${truncate(event.detail || 'error', 30)}`;
+        spec.lastActive = Date.now();
+      }
+      displayState.toolStartTimes.delete(`${event.agent}:${event.label}`);
+    } else {
+      displayState.toolStartTimes.delete(event.label);
+      const pfx = indent();
+      const pipe = displayState.activeSpecialist ? chalk.hex('#475569')('│ ') : '';
+      const elbow = chalk.hex('#475569')('│   └ ');
+      const badge = toolBadge(event.label, 'error');
+      const err = chalk.red(` — ${truncate(event.detail || 'Failed', 80)}`);
+      console.log(`${pfx}${pipe}${elbow}${badge}${err}`);
+    }
   }
 
   // ── Subagent start (non-swarm agents like coding, research) ─────────────
@@ -728,12 +866,20 @@ function printProgressWithSticky(event: ProgressEvent) {
 
   // ── Step (Manager/COO summary of tool calls used in a loop step) ─────────
   else if (event.type === 'step') {
-    displayState.stepCount += 1;
-    const counter = chalk.hex('#64748B')(`[${displayState.stepCount}]`);
-    const arrow = chalk.hex('#8B5CF6')('→');
-    const label = chalk.hex('#C4B5FD')(event.label);
-    const detail = event.detail ? chalk.gray(` · ${truncate(event.detail, 64)}`) : '';
-    console.log(`${arrow} ${counter} ${label}${detail}`);
+    if (displayState.activeSpecialists.size > 1 && event.agent) {
+      const spec = displayState.activeSpecialists.get(event.agent);
+      if (spec) {
+        spec.status = `Step: ${event.label}`;
+        spec.lastActive = Date.now();
+      }
+    } else {
+      displayState.stepCount += 1;
+      const counter = chalk.hex('#64748B')(`[${displayState.stepCount}]`);
+      const arrow = chalk.hex('#8B5CF6')('→');
+      const label = chalk.hex('#C4B5FD')(event.label);
+      const detail = event.detail ? chalk.gray(` · ${truncate(event.detail, 64)}`) : '';
+      console.log(`${arrow} ${counter} ${label}${detail}`);
+    }
   }
 
   else {
@@ -754,8 +900,21 @@ function printProgressWithSticky(event: ProgressEvent) {
     const icon = simpleIcons[event.type];
     const color = simpleColors[event.type];
     if (icon && color) {
-      const detail = event.detail ? chalk.gray(` — ${truncate(event.detail, 80)}`) : '';
-      console.log(`  ${color(`${icon} ${event.label}`)}${detail}`);
+      if (displayState.activeSpecialists.size > 1 && event.agent) {
+        const spec = displayState.activeSpecialists.get(event.agent);
+        if (spec) {
+          if (event.type.endsWith('start')) {
+            const act = event.type.startsWith('search') ? 'Searching' : 'Fetching';
+            spec.status = `${act} ${truncate(event.label, 25)}`;
+          } else {
+            spec.status = 'Idle';
+          }
+          spec.lastActive = Date.now();
+        }
+      } else {
+        const detail = event.detail ? chalk.gray(` — ${truncate(event.detail, 80)}`) : '';
+        console.log(`  ${color(`${icon} ${event.label}`)}${detail}`);
+      }
     }
   }
 

@@ -103,7 +103,7 @@ export class SwarmAgent {
     }
     
     const { describeTool, toolNamesFromStep } = await import('./tool-utils.js');
-    const { emitProgress } = await import('./progress.js');
+    const { emitProgress, agentContextStorage } = await import('./progress.js');
     const { SwarmTraceTracker } = await import('../observability/traces.js');
 
     const tracker = SwarmTraceTracker.getInstance();
@@ -115,20 +115,28 @@ export class SwarmAgent {
       task: prompt,
     });
 
+    const context = {
+      agentKey: this.config.name,
+      name: this.config.name,
+      department: this.config.department,
+    };
+
     return tracker.runWithSpan(span, async () => {
-      const result = await this.agent!.generate({
-        prompt,
-        ...(abortSignal ? { abortSignal } : {}),
-        onStepFinish: (step: any) => {
-          const tools = toolNamesFromStep(step);
-          if (tools.length > 0) {
-            const detail = tools.map(describeTool).join(', ');
-            emitProgress({ type: 'step', label: `${this.config.name} selected tools`, detail });
-            tracker.recordEvent('tool_call', 'selected_tools', detail).catch(() => {});
+      return agentContextStorage.run(context, async () => {
+        const result = await this.agent!.generate({
+          prompt,
+          ...(abortSignal ? { abortSignal } : {}),
+          onStepFinish: (step: any) => {
+            const tools = toolNamesFromStep(step);
+            if (tools.length > 0) {
+              const detail = tools.map(describeTool).join(', ');
+              emitProgress({ type: 'step', label: `${this.config.name} selected tools`, detail });
+              tracker.recordEvent('tool_call', 'selected_tools', detail).catch(() => {});
+            }
           }
-        }
-      } as any);
-      return result.text;
+        } as any);
+        return result.text;
+      });
     });
   }
 }

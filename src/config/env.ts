@@ -106,6 +106,7 @@ export type Env = {
   supermemoryApiKey: string | undefined;
   upstashVectorRestUrl: string | undefined;
   upstashVectorRestToken: string | undefined;
+  zilmateDaemonPort: number;
 };
 
 export const env: Env = {
@@ -165,6 +166,7 @@ export const env: Env = {
   supermemoryApiKey: process.env.SUPERMEMORY_API_KEY,
   upstashVectorRestUrl: process.env.UPSTASH_VECTOR_REST_URL,
   upstashVectorRestToken: process.env.UPSTASH_VECTOR_REST_TOKEN,
+  zilmateDaemonPort: Number(process.env.ZILMATE_DAEMON_PORT || '8124'),
 };
 
 export function hasGatewayAuth() {

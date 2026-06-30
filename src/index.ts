@@ -63,7 +63,7 @@ const program = new Command();
 program
   .name('zilmate')
   .description('ZilMate Agent')
-  .version('1.10.3');
+  .version('1.10.4');
 
 program
   .command('welcome')
@@ -1146,6 +1146,49 @@ program
       requireGatewayAuth();
       const result = await generateText({ model: models.help, prompt: 'Reply with exactly: ZilMate online' });
       await printResult(result.text);
+    } catch (error) {
+      printError(friendlyError(error));
+      process.exitCode = 1;
+    }
+  });
+
+program
+  .command('daemon')
+  .description('ZilMate Ubiquity background daemon management')
+  .argument('[action]', 'daemon action: start | stop | status | install-mac', 'status')
+  .action(async (action: string) => {
+    try {
+      if (action === 'start') {
+        const { startDaemon } = await import('./daemon/service.js');
+        startDaemon();
+      } else if (action === 'stop') {
+        const chalk = (await import('chalk')).default;
+        console.log(chalk.blue('Stopping ZilMate Ubiquity daemon...'));
+        if (process.platform === 'win32') {
+          const { execSync } = await import('node:child_process');
+          try {
+            execSync('powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \\"Name = \'powershell.exe\'\\" | Where-Object { $_.CommandLine -like \'*win-listener.ps1*\' } | ForEach-Object { Stop-Process $_.ProcessId -Force }"', { stdio: 'ignore' });
+            console.log(chalk.green('✓ Terminated Windows Hotkey listener process.'));
+          } catch {
+            // Ignore if no process was running
+          }
+        }
+        console.log(chalk.green('✓ Daemon shutdown request completed.'));
+        process.exit(0);
+      } else if (action === 'install-mac') {
+        const { installMacDaemon } = await import('./daemon/mac-installer.js');
+        installMacDaemon();
+      } else {
+        const chalk = (await import('chalk')).default;
+        const { env } = await import('./config/env.js');
+        console.log(chalk.cyan('\n🌌 ZilMate Ubiquity Daemon Status 🌌'));
+        console.log(`Platform:   ${chalk.white(process.platform)}`);
+        console.log(`Daemon Port: ${chalk.green(env.zilmateDaemonPort.toString())}`);
+        console.log(`Global Hotkey (Win): ${chalk.yellow('Ctrl + Shift + Z')}`);
+        console.log(`Global Hotkey (Mac): ${chalk.yellow('Cmd + Shift + Z')}`);
+        console.log(`\nTo launch the background listener, run: ${chalk.cyan('zilmate daemon start')}`);
+        console.log(`To register persistent startup on macOS, run: ${chalk.cyan('zilmate daemon install-mac')}\n`);
+      }
     } catch (error) {
       printError(friendlyError(error));
       process.exitCode = 1;

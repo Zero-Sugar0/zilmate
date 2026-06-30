@@ -1,6 +1,6 @@
 {
   "name": "zilmate",
-  "version": "1.10.3",
+  "version": "1.10.4",
   "description": "Production-grade CLI multi-agent AI assistant, real-time voice controller, and automated background job scheduler for local and cloud environments.",
   "type": "module",
   "main": "dist/server.js",
@@ -20,7 +20,7 @@
     }
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && node scripts/copy-resources.mjs",
     "cli": "tsx src/index.ts",
     "zilmate": "tsx src/index.ts",
     "zilmate chat": "tsx src/index.ts chat",
@@ -32,6 +32,7 @@
     "config": "tsx src/index.ts config",
     "memory": "tsx src/index.ts memory",
     "triggers": "tsx src/index.ts triggers",
+    "daemon": "tsx src/index.ts daemon",
     "test": "npm run build",
     "prepare": "npm run build",
     "postinstall": "node scripts/postinstall.mjs",

@@ -1,4 +1,13 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { isConfirmationActive } from './confirm.js';
+
+export interface AgentContext {
+  agentKey: string;
+  name: string;
+  department: string;
+}
+
+export const agentContextStorage = new AsyncLocalStorage<AgentContext>();
 
 export type ProgressEvent = {
   type:
@@ -32,6 +41,14 @@ export function emitProgress(event: ProgressEvent) {
   // We allow 'tool:error' and 'step' events even during confirmation
   // to ensure background failures or state updates are visible.
   if (isConfirmationActive() && !['tool:error', 'step'].includes(event.type)) return;
+
+  // Auto-enrich the event with current specialist context if available
+  const store = agentContextStorage.getStore();
+  if (store) {
+    if (!event.agent) event.agent = store.agentKey;
+    if (!event.department) event.department = store.department;
+  }
+
   listener?.(event);
 }
 
@@ -44,3 +61,4 @@ export async function withProgressListener<T>(progress: ((event: ProgressEvent) 
     listener = previous;
   }
 }
+
