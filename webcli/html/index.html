@@ -26,17 +26,29 @@
             <div class="nav-item" data-tab="traces">
                 <span>📊</span> Live Traces
             </div>
+            <div class="nav-item" data-tab="apps">
+                <span>🔌</span> Connected Apps
+            </div>
+            <div class="nav-item" data-tab="mcp">
+                <span>🧩</span> MCP Servers
+            </div>
+            <div class="nav-item" data-tab="skills">
+                <span>⚡</span> Specialized Skills
+            </div>
+            <div class="nav-item" data-tab="triggers">
+                <span>🔔</span> Event Triggers
+            </div>
+            <div class="nav-item" data-tab="jobs">
+                <span>📅</span> Background Jobs
+            </div>
             <div class="nav-item" data-tab="memory">
-                <span>🧠</span> Corporate Memory
+                <span>🧠</span> Digital Memory
             </div>
             <div class="nav-item" data-tab="wiki">
                 <span>📚</span> Intelligence Wiki
             </div>
             <div class="nav-item" data-tab="doctor">
                 <span>🩺</span> System Health
-            </div>
-            <div class="nav-item" data-tab="apps">
-                <span>🔌</span> App Connectivity
             </div>
             <div class="nav-item" data-tab="setup">
                 <span>⚙️</span> Configuration
@@ -107,6 +119,41 @@
             </div>
         </div>
 
+        <!-- View: Connected Apps -->
+        <div id="view-apps" class="view-container hidden">
+            <div class="grid" id="apps-grid">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+
+        <!-- View: MCP Servers -->
+        <div id="view-mcp" class="view-container hidden">
+            <div class="grid" id="mcp-grid">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+
+        <!-- View: Specialized Skills -->
+        <div id="view-skills" class="view-container hidden">
+            <div class="grid" id="skills-grid">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+
+        <!-- View: Triggers -->
+        <div id="view-triggers" class="view-container hidden">
+            <div class="grid" id="triggers-grid">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+
+        <!-- View: Jobs -->
+        <div id="view-jobs" class="view-container hidden">
+            <div class="grid" id="jobs-grid">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+
         <!-- View: System Doctor -->
         <div id="view-doctor" class="view-container hidden">
             <div class="grid" id="doctor-grid">
@@ -114,7 +161,7 @@
             </div>
         </div>
 
-        <!-- Other views would follow same pattern -->
+        <!-- Other views -->
         <div id="view-other" class="view-container hidden">
             <div class="card">
                 <div class="card-head">
