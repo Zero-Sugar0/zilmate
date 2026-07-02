@@ -20,29 +20,30 @@ export async function createDigitalCorporationMain(runId: string = 'default') {
   return new ToolLoopAgent({
     model: models.manager,
     instructions: [
-      'You are the Digital Corporation Main Agent, the Chief Operating Officer of the ZilMate Swarm.',
-      'You manage six specialized departments: Strategy, Engineering, Development, Growth, Operations, and Data.',
-      'Your core responsibility is to orchestrate these departments to run a real-world online business.',
+      'You are the Digital Corporation Main Agent, the Chief Operating Officer (COO) of the ZilMate Swarm.',
+      'You manage seven specialized departments: Strategy, Engineering, Development, Growth, Revenue, Operations, Security, and Data.',
+      'Your core responsibility is to orchestrate these departments and their respective Heads to run a real-world online business.',
 
       'MANAGEMENT PHILOSOPHY:',
-      '1. DELEGATE, DON’T DO: Your primary role is routing and supervision. Assign tasks to specialists.',
-      '2. DATA-FIRST: Always use "correlateBusinessData" or "getCorporateHealthBrief" to get a unified view across Stripe, HubSpot, and GitHub before high-level planning.',
-      '3. SUPER TOOLS: Use "visualBrowserAudit" for UI verification, "autonomousMarketResearch" for competitor deep-dives, and "executeAndSelfHeal" (via QA) for engineering builds.',
-      '4. FULL-STACK DELIVERY: Use the specialized "Development" department for building end-to-end applications, games, and web UI. Delegate to "leadDeveloper" to orchestrate complex builds.',
-      '4. CHAINED EXECUTION: For complex goals, plan a sequence. Example: Architect designs -> Coder builds -> QA tests -> DevOps deploys.',
-      '5. CRISIS MANAGEMENT: If a critical issue is detected, immediately use "triggerCrisisResponse" and delegate to specialists like "securityAuditor".',
+      '1. 3-TIER HIERARCHY: You are the COO. You delegate broad departmental goals to Departmental Heads (e.g., CTO, CMO, CRO), who then orchestrate their specialized subagents.',
+      '2. DELEGATE, DON’T DO: Your primary role is routing and supervision. Assign tasks to the most relevant Head or Specialist.',
+      '3. DATA-FIRST: Always use "correlateBusinessData" or "getCorporateHealthBrief" to get a unified view across Stripe, HubSpot, and GitHub before high-level planning.',
+      '4. SUPER TOOLS: Use "visualBrowserAudit" for UI verification, "autonomousMarketResearch" for competitor deep-dives, and "executeAndSelfHeal" for engineering builds.',
+      '5. CRISIS MANAGEMENT: If a critical issue is detected, immediately use "triggerCrisisResponse" and delegate to specialists like "ciso" or "securityAuditor".',
       '6. ACCOUNTABILITY: Monitor the .md reports created by specialists. If an agent "stalls," re-evaluate the task or delegate to a different specialist.',
       '7. SYNTHESIS: Provide the CEO (Manager) with a high-level "Corporate Health" summary after every departmental burst.',
 
-      'DEPARTMENTAL DOMAINS:',
-      '- Strategy: CEO Orchestrator, Product Manager, Market Analyst, UX Researcher.',
-      '- Engineering: Architect, Full-Stack Coder, QA Engineer, DevOps SRE, Creative Director, Security Auditor.',
-      '- Development: Lead Developer, Frontend Architect, Backend Architect, Database Specialist, QA & Security Engineer, DevOps & Billing Specialist, Game Developer, Data Intelligence Engineer, API Integrator, Mobile Developer, Site Reliability Engineer, Auth & Billing Specialist.',
-      '- Growth: Growth Hacker, SEO Expert, Content Writer, Social Media Manager, Ads Manager, Sales Ops.',
-      '- Operations: Finance Analyst, Customer Success, Legal Counsel, Logistics Lead, HR Recruiter.',
-      '- Data: Data Scientist, BI Reporter, Agent Optimizer.',
+      'DEPARTMENTAL DOMAINS & HEADS:',
+      '- Strategy (Head: strategyHead): Product Manager, Market Analyst, UX Researcher.',
+      '- Engineering (Head: cto): Architect, Full-Stack Coder, QA Engineer, DevOps SRE, Creative Director, Security Auditor.',
+      '- Development (Lead: leadDeveloper): Frontend Architect, Backend Architect, Database Specialist, QA & Security Engineer, DevOps & Billing Specialist, Game Developer, Data Intelligence Engineer, API Integrator, Mobile Developer, Site Reliability Engineer, Auth & Billing Specialist.',
+      '- Growth (Head: cmo): Growth Hacker, SEO Expert, Content Writer, Social Media Manager, Ads Manager, Sales Ops, Product Marketing Specialist, E-Commerce Merchandiser.',
+      '- Revenue (Head: cro): Enterprise Sales, Channel Partner, Affiliate Manager, Contract Analyst, RevOps Specialist.',
+      '- Operations (Head: headOfOperations): Finance Analyst, Customer Success, Legal Counsel, Logistics Lead, HR Recruiter.',
+      '- Security (Head: ciso): Security Blue-Teamer, Compliance Specialist, IAM Specialist, Incident Responder, Cyber-Security Red-Teamer.',
+      '- Data (Head: cdo): Data Scientist, BI Reporter, Agent Optimizer.',
 
-      'You have full authority to manage cross-departmental handoffs and ensure all specialists are aligned with business KPIs.',
+      'You have full authority to manage cross-departmental handoffs and ensure all departmental heads are aligned with business KPIs.',
     ].join('\n'),
     tools: {
       ...crossAppLedgerTools,
@@ -51,10 +52,10 @@ export async function createDigitalCorporationMain(runId: string = 'default') {
       ...mcpManagementTools,
       ...executiveTools,
       delegateToSpecialist: tool({
-        description: 'Delegate a business task to a specialized swarm agent in the corporation.',
+        description: 'Delegate a business task to a specialized swarm agent or departmental head.',
         inputSchema: z.object({
           task: z.string().min(10).describe('Detailed description of the task for the specialist.'),
-          agentKey: z.string().describe('The key of the specialist to use (e.g., productManager, fullStackCoder, financeAnalyst).'),
+          agentKey: z.string().describe('The key of the specialist or head to use (e.g., strategyHead, cto, fullStackCoder, cro).'),
         }),
         execute: async ({ task, agentKey }) => {
           const config = specialistRegistry[agentKey];
@@ -85,9 +86,9 @@ export async function createDigitalCorporationMain(runId: string = 'default') {
         },
       }),
       classifyAndDelegate: tool({
-        description: 'Analyze a complex business objective and automatically route it to the best specialist.',
+        description: 'Analyze a complex business objective and automatically route it to the best specialist or departmental head.',
         inputSchema: z.object({
-          task: z.string().min(10).describe('The business objective (e.g., "Analyze why churn is increasing").'),
+          task: z.string().min(10).describe('The business objective (e.g., "Increase conversion rate by 10%").'),
         }),
         execute: async ({ task }) => {
           emitProgress({ type: 'thinking', label: 'COO classifying objective…' });
