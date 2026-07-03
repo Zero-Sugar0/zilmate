@@ -6,7 +6,7 @@ import { limits } from '../safety/limits.js';
 import { createScratchpadTools } from '../tools/scratchpad.tool.js';
 import { notebookTools } from '../tools/notebook.tool.js';
 
-export function createFinanceAgent(runId = 'default') {
+export async function createFinanceAgent(runId = 'default') {
   const scratchpadTools = createScratchpadTools(`${runId}:finance`);
 
   return new ToolLoopAgent({

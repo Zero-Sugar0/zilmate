@@ -9,7 +9,7 @@ import { pentestTools } from '../tools/pentest.tool.js';
 import { pentestInstallTools } from '../tools/pentest-install.tool.js';
 import { sysopsTools } from '../tools/sysops.tool.js';
 
-export function createSecurityAgent(runId = 'default') {
+export async function createSecurityAgent(runId = 'default') {
   const scratchpadTools = createScratchpadTools(runId);
 
   return new ToolLoopAgent({
