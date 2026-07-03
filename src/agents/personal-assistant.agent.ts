@@ -5,7 +5,7 @@ import { memoryTools } from '../tools/memory.tool.js';
 import { timeTools } from '../tools/time.tool.js';
 import { limits } from '../safety/limits.js';
 
-export function createPersonalAssistantAgent() {
+export async function createPersonalAssistantAgent() {
   return new ToolLoopAgent({
     model: models.chat,
     instructions: [

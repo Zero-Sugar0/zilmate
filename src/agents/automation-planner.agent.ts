@@ -8,7 +8,7 @@ import { orchestrationTools } from '../tools/orchestration.tool.js';
 import { personalContextTools } from '../tools/personal-context.tool.js';
 import { limits } from '../safety/limits.js';
 
-export function createAutomationPlannerAgent() {
+export async function createAutomationPlannerAgent() {
   return new ToolLoopAgent({
     model: models.manager,
     instructions: [

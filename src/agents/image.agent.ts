@@ -16,7 +16,7 @@ const stylePresets = {
   photoreal: 'Photorealistic, natural lighting, accurate materials, high resolution, no artifacts.',
 };
 
-export function createImageAgent() {
+export async function createImageAgent() {
   return new ToolLoopAgent({
     model: models.manager,
     instructions: [

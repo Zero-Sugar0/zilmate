@@ -11,7 +11,7 @@ import { devopsTools } from '../tools/devops.tool.js';
 import { sysopsTools } from '../tools/sysops.tool.js';
 import { cloudTools } from '../tools/cloud.tool.js';
 
-export function createDeveloperHelperAgent(runId = 'default') {
+export async function createDeveloperHelperAgent(runId = 'default') {
   const scratchpadTools = createScratchpadTools(runId);
   return new ToolLoopAgent({
     model: models.research,

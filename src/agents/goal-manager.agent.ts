@@ -8,7 +8,7 @@ import { knowledgeTools } from '../tools/knowledge.tool.js';
 import { personalContextTools } from '../tools/personal-context.tool.js';
 import { jobTools } from '../tools/jobs.tool.js';
 
-export function createGoalManagerAgent() {
+export async function createGoalManagerAgent() {
   return new ToolLoopAgent({
     model: models.manager,
     instructions: [

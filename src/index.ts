@@ -37,7 +37,7 @@ import { captureCameraCli, listCameraDevicesCli, runCameraDoctorCli } from './cl
 import { printModelBrowser } from './cli/models.js';
 import { startChatListener } from './cli/chat.js';
 
-type TextAgentFactory = () => { generate: (input: { prompt: string }) => Promise<{ text: string }> };
+type TextAgentFactory = (runId?: string) => Promise<{ generate: (input: { prompt: string }) => Promise<{ text: string }> }>;
 
 async function printResult(value: string | unknown) {
   if (typeof value === 'string') {
@@ -49,7 +49,8 @@ async function printResult(value: string | unknown) {
 
 async function runAgentText(agentFactory: TextAgentFactory, prompt: string) {
   requireGatewayAuth();
-  const result = await agentFactory().generate({ prompt });
+  const agent = await agentFactory();
+  const result = await agent.generate({ prompt });
   await printResult(result.text);
 }
 
